@@ -1,0 +1,16 @@
+[package]
+name = "chordmate"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = { version = "0.8.6", features = ["ws"] }
+dotenvy = "0.15"
+futures = "0.3.31"
+juniper = { version = "0.17", default-features = false }
+juniper_axum = { version = "0.3.0", features = ["subscriptions"] }
+juniper_graphql_ws = { version = "0.5", features = ["graphql-transport-ws"] }
+serde = { version = "1", features = ["derive"] }
+sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio-rustls", "macros"] }
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1.17"
