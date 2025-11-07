@@ -1,6 +1,6 @@
 use deadpool_postgres::{ManagerConfig, Pool, RecyclingMethod, Runtime};
 use tokio::task::JoinHandle;
-use tokio_postgres::NoTls;
+use tokio_postgres::{Error, NoTls};
 
 pub struct Database {
     pool: Pool,
@@ -30,14 +30,19 @@ impl Database {
         Database { pool }
     }
 
-    pub fn query(self: &Self, q: &str) -> JoinHandle<()> {
+    pub fn query(self: &Self, q: &str) -> JoinHandle<Result<String, Error>> {
         let pool = self.pool.clone();
         let q = String::from(q);
         tokio::spawn(async move {
             let client = pool.get().await.unwrap();
-            let row = client.query_one(&q, &[]).await.unwrap();
-            let name: &str = row.get("name");
-            println!("Result: {}", name)
+            let r: Result<String, Error> = match client.query_one(&q, &[]).await {
+                Ok(row) => {
+                    let s: String = row.get("name");
+                    Ok(s)
+                }
+                Err(error) => Err(error),
+            };
+            r
         })
     }
 }

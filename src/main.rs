@@ -15,14 +15,31 @@ use tokio_postgres::tls::NoTlsStream;
 use tokio_postgres::{Client, Connection, Error, NoTls, Row, Socket};
 use tokio_stream::wrappers::IntervalStream;
 
-#[derive(Clone, Copy, Debug)]
-struct Query;
-
 #[graphql_object]
-impl Query {
+impl database::Database {
     /// Adds two `a` and `b` numbers.
     fn add(a: i32, b: i32) -> i32 {
         a + b * 2
+    }
+    async fn testdb(&self, q: String) -> String {
+        println!("Start query: {}", q);
+        let future = self.query(&q);
+        match future.await {
+            Ok(inner) => match inner {
+                Ok(result) => {
+                    println!("Query {} finished: {}", q, result);
+                    result
+                }
+                Err(e) => {
+                    println!("Query {} failed: {}", q, e);
+                    String::from(format!("Query returned error: {}", e))
+                }
+            },
+            Err(e) => {
+                println!("Tasks panicked: {:?}", e);
+                String::from(format!("Internal error: {:?}", e))
+            }
+        }
     }
 }
 
@@ -42,7 +59,7 @@ impl Subscription {
         Box::pin(stream)
     }
 }
-type Schema = RootNode<Query, EmptyMutation, Subscription>;
+type Schema = RootNode<database::Database, EmptyMutation, Subscription>;
 async fn homepage() -> Html<&'static str> {
     "<html><h1>juniper_axum/simple example</h1>\
            <div>visit <a href=\"/graphiql\">GraphiQL</a></div>\
@@ -51,47 +68,34 @@ async fn homepage() -> Html<&'static str> {
         .into()
 }
 
-// #[tokio::main]
-// async fn main() {
-//     let schema = Schema::new(Query, EmptyMutation::new(), Subscription);
-//     let app = Router::new()
-//         .route(
-//             "/graphql",
-//             axum::routing::on(
-//                 MethodFilter::GET.or(MethodFilter::POST),
-//                 graphql::<Arc<Schema>>,
-//             ),
-//         )
-//         .route(
-//             "/subscriptions",
-//             get(ws::<Arc<Schema>>(ConnectionConfig::new(()))),
-//         )
-//         .route("/graphiql", get(graphiql("/graphql", "/subscriptions")))
-//         .route("/playground", get(playground("/graphql", "/subscriptions")))
-//         .route("/", get(homepage))
-//         .layer(Extension(Arc::new(schema)));
-//     let listener = TcpListener::bind("127.0.0.1:3000")
-//         .await
-//         .expect("Failed to start TCP listener.");
-//
-//     println!("listening on http://{}", listener.local_addr().unwrap());
-//
-//     axum::serve(listener, app).await.unwrap();
-// }
-
 #[tokio::main]
 async fn main() {
-    let queries = vec![
-        "SELECT pg_sleep(10), '10' AS Name",
-        "SELECT pg_sleep(1), '1' AS Name",
-        "SELECT pg_sleep(0.3), '0.3' AS Name",
-        "SELECT pg_sleep(5), '5' AS Name",
-    ];
+    let schema = Schema::new(
+        database::Database::new(),
+        EmptyMutation::new(),
+        Subscription,
+    );
+    let app = Router::new()
+        .route(
+            "/graphql",
+            axum::routing::on(
+                MethodFilter::GET.or(MethodFilter::POST),
+                graphql::<Arc<Schema>>,
+            ),
+        )
+        .route(
+            "/subscriptions",
+            get(ws::<Arc<Schema>>(ConnectionConfig::new(()))),
+        )
+        .route("/graphiql", get(graphiql("/graphql", "/subscriptions")))
+        .route("/playground", get(playground("/graphql", "/subscriptions")))
+        .route("/", get(homepage))
+        .layer(Extension(Arc::new(schema)));
+    let listener = TcpListener::bind("127.0.0.1:3000")
+        .await
+        .expect("Failed to start TCP listener.");
 
-    let database = database::Database::new();
-    let mut join_handles: FuturesUnordered<_> = queries
-        .into_iter()
-        .map(|query| database.query(query))
-        .collect();
-    while let Some(database_result) = join_handles.next().await {}
+    println!("listening on http://{}", listener.local_addr().unwrap());
+
+    axum::serve(listener, app).await.unwrap();
 }
