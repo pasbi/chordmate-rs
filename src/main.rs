@@ -1,3 +1,5 @@
+mod database;
+
 use axum::routing::MethodFilter;
 use axum::{response::Html, routing::get, Extension, Router};
 use deadpool_postgres::{ManagerConfig, Pool, RecyclingMethod, Runtime};
@@ -5,6 +7,7 @@ use futures::stream::{BoxStream, FuturesUnordered, StreamExt as _};
 use juniper::{graphql_object, graphql_subscription, EmptyMutation, FieldError, RootNode};
 use juniper_axum::{graphiql, graphql, playground, ws};
 use juniper_graphql_ws::ConnectionConfig;
+use sqlx::Error::Database;
 use std::future::Future;
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 use tokio::{net::TcpListener, time::interval};
@@ -78,29 +81,6 @@ async fn homepage() -> Html<&'static str> {
 
 #[tokio::main]
 async fn main() {
-    let mut pg_cfg = tokio_postgres::Config::new();
-    pg_cfg.dbname("postgres");
-    pg_cfg.host("localhost");
-    pg_cfg.user("postgres");
-    pg_cfg.password("secret");
-    pg_cfg.port(15432);
-    pg_cfg.dbname("postgres");
-    let manager = deadpool_postgres::Manager::from_config(
-        pg_cfg,
-        NoTls,
-        ManagerConfig {
-            recycling_method: RecyclingMethod::Fast,
-        },
-    );
-    let pool = Pool::builder(manager)
-        .max_size(5)
-        .runtime(Runtime::Tokio1)
-        .build()
-        .unwrap();
-
-    println!("Pool created");
-    dbg!(pool.status());
-
     let queries = vec![
         "SELECT pg_sleep(10), '10' AS Name",
         "SELECT pg_sleep(1), '1' AS Name",
@@ -108,26 +88,10 @@ async fn main() {
         "SELECT pg_sleep(5), '5' AS Name",
     ];
 
-    let mut futures: FuturesUnordered<_> = queries
+    let database = database::Database::new();
+    let mut join_handles: FuturesUnordered<_> = queries
         .into_iter()
-        .map(|q| {
-            // pool.clone only creates a new handle to the same pool. It's using Arc internally.
-            let pool = pool.clone();
-            tokio::spawn(async move {
-                let client = pool.get().await.unwrap();
-                let row = client.query_one(q, &[]).await?;
-                let name: &str = row.get("name");
-                Ok::<_, Error>(name.to_string())
-            })
-        })
+        .map(|query| database.query(query))
         .collect();
-
-    // React as queries complete
-    while let Some(result) = futures.next().await {
-        match result {
-            Ok(Ok(name)) => println!("Query completed: {}", name),
-            Ok(Err(e)) => eprintln!("Query error: {}", e),
-            Err(e) => eprintln!("Task panicked: {:?}", e),
-        }
-    }
+    while let Some(database_result) = join_handles.next().await {}
 }
