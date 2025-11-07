@@ -1,0 +1,23 @@
+services:
+  database:
+    image: 'docker.io/postgres:latest'
+    environment:
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+    ports:
+      - 15432:5432
+    volumes:
+      - pg-data:/var/lib/postgresql
+
+  pgadmin:
+    image: 'docker.io/dpage/pgadmin4:latest'
+    environment:
+      PGADMIN_DEFAULT_EMAIL: "${PGADMIN_DEFAULT_EMAIL}"
+      PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_DEFAULT_PASSWORD}"
+    ports:
+      - 15080:80
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin/
+
+volumes:
+  pg-data:
+  pgadmin-data:

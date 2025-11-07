@@ -14,3 +14,5 @@ serde = { version = "1", features = ["derive"] }
 sqlx = { version = "0.8.6", features = ["postgres", "runtime-tokio-rustls", "macros"] }
 tokio = { version = "1", features = ["full"] }
 tokio-stream = "0.1.17"
+tokio-postgres = "0.7.15"
+deadpool-postgres = "0.14.1"
