@@ -1,9 +1,9 @@
 use deadpool_postgres::{ManagerConfig, Pool, RecyclingMethod, Runtime};
 use tokio::task::JoinHandle;
-use tokio_postgres::{Error, NoTls};
+use tokio_postgres::{Error, NoTls, Row};
 
 pub struct Database {
-    pool: Pool,
+    connection_pool: Pool,
 }
 
 impl Database {
@@ -22,27 +22,18 @@ impl Database {
                 recycling_method: RecyclingMethod::Fast,
             },
         );
-        let pool = Pool::builder(manager)
+        let connection_pool = Pool::builder(manager)
             .max_size(5)
             .runtime(Runtime::Tokio1)
             .build()
             .unwrap();
-        Database { pool }
+        Database { connection_pool }
     }
 
-    pub fn query(self: &Self, q: &str) -> JoinHandle<Result<String, Error>> {
-        let pool = self.pool.clone();
+    pub fn query(self: &Self, q: &str) -> JoinHandle<Result<Row, Error>> {
+        // clone only creates a new handle to the same pool. It's using Arc internally.
+        let pool = self.connection_pool.clone();
         let q = String::from(q);
-        tokio::spawn(async move {
-            let client = pool.get().await.unwrap();
-            let r: Result<String, Error> = match client.query_one(&q, &[]).await {
-                Ok(row) => {
-                    let s: String = row.get("name");
-                    Ok(s)
-                }
-                Err(error) => Err(error),
-            };
-            r
-        })
+        tokio::spawn(async move { pool.get().await.unwrap().query_one(&q, &[]).await })
     }
 }

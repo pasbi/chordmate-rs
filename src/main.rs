@@ -2,17 +2,12 @@ mod database;
 
 use axum::routing::MethodFilter;
 use axum::{response::Html, routing::get, Extension, Router};
-use deadpool_postgres::{ManagerConfig, Pool, RecyclingMethod, Runtime};
-use futures::stream::{BoxStream, FuturesUnordered, StreamExt as _};
+use futures::stream::{BoxStream, StreamExt as _};
 use juniper::{graphql_object, graphql_subscription, EmptyMutation, FieldError, RootNode};
 use juniper_axum::{graphiql, graphql, playground, ws};
 use juniper_graphql_ws::ConnectionConfig;
-use sqlx::Error::Database;
-use std::future::Future;
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 use tokio::{net::TcpListener, time::interval};
-use tokio_postgres::tls::NoTlsStream;
-use tokio_postgres::{Client, Connection, Error, NoTls, Row, Socket};
 use tokio_stream::wrappers::IntervalStream;
 
 #[graphql_object]
@@ -21,25 +16,15 @@ impl database::Database {
     fn add(a: i32, b: i32) -> i32 {
         a + b * 2
     }
-    async fn testdb(&self, q: String) -> String {
+
+    /// Tests the database.
+    async fn testdb(&self, key: String, q: String) -> String {
         println!("Start query: {}", q);
-        let future = self.query(&q);
-        match future.await {
-            Ok(inner) => match inner {
-                Ok(result) => {
-                    println!("Query {} finished: {}", q, result);
-                    result
-                }
-                Err(e) => {
-                    println!("Query {} failed: {}", q, e);
-                    String::from(format!("Query returned error: {}", e))
-                }
-            },
-            Err(e) => {
-                println!("Tasks panicked: {:?}", e);
-                String::from(format!("Internal error: {:?}", e))
-            }
-        }
+        self.query(&q)
+            .await
+            .unwrap_or_else(|e| panic!("Internal error: {}", e))
+            .and_then(|row| row.try_get(key.as_str()))
+            .unwrap_or_else(|e| format!("Error: {}", e))
     }
 }
 
