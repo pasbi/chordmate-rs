@@ -53,14 +53,9 @@ async fn homepage() -> Html<&'static str> {
         .into()
 }
 
-#[tokio::main]
-async fn main() {
-    let schema = Schema::new(
-        database::Database::new(),
-        EmptyMutation::new(),
-        Subscription,
-    );
-    let app = Router::new()
+fn router(database: database::Database) -> Router {
+    let schema = Schema::new(database, EmptyMutation::new(), Subscription);
+    Router::new()
         .route(
             "/graphql",
             axum::routing::on(
@@ -75,12 +70,17 @@ async fn main() {
         .route("/graphiql", get(graphiql("/graphql", "/subscriptions")))
         .route("/playground", get(playground("/graphql", "/subscriptions")))
         .route("/", get(homepage))
-        .layer(Extension(Arc::new(schema)));
+        .layer(Extension(Arc::new(schema)))
+}
+
+#[tokio::main]
+async fn main() {
     let listener = TcpListener::bind("127.0.0.1:3000")
         .await
         .expect("Failed to start TCP listener.");
 
     println!("listening on http://{}", listener.local_addr().unwrap());
+    let database = database::Database::new();
 
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, router(database)).await.unwrap();
 }
