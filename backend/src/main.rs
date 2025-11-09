@@ -1,5 +1,4 @@
 mod database;
-
 use axum::routing::MethodFilter;
 use axum::{response::Html, routing::get, Extension, Router};
 use futures::stream::{BoxStream, StreamExt as _};
@@ -9,7 +8,7 @@ use juniper_graphql_ws::ConnectionConfig;
 use std::{sync::Arc, time::Duration};
 use tokio::{net::TcpListener, time::interval};
 use tokio_stream::wrappers::IntervalStream;
-
+use tower_http::services::fs::ServeDir;
 #[graphql_object]
 impl database::Database {
     /// Adds two `a` and `b` numbers.
@@ -52,10 +51,14 @@ async fn homepage() -> Html<&'static str> {
     </html>"
         .into()
 }
+async fn spa_index() -> Html<&'static str> {
+    Html(include_str!("../../frontend/build/index.html"))
+}
 
 fn router(database: database::Database) -> Router {
     let schema = Schema::new(database, EmptyMutation::new(), Subscription);
     Router::new()
+        .nest_service("/static", ServeDir::new("../frontend/build/static"))
         .route(
             "/graphql",
             axum::routing::on(
@@ -70,6 +73,7 @@ fn router(database: database::Database) -> Router {
         .route("/graphiql", get(graphiql("/graphql", "/subscriptions")))
         .route("/playground", get(playground("/graphql", "/subscriptions")))
         .route("/", get(homepage))
+        .fallback(spa_index)
         .layer(Extension(Arc::new(schema)))
 }
 

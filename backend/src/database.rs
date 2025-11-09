@@ -1,5 +1,4 @@
 use deadpool_postgres::{ManagerConfig, Pool, RecyclingMethod, Runtime};
-use refinery::embed_migrations;
 use tokio::task::JoinHandle;
 use tokio_postgres::{Error, NoTls, Row};
 
