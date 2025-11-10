@@ -1,0 +1,5 @@
+ALTER TABLE songs
+    ALTER COLUMN title SET NOT NULL,
+    ALTER COLUMN artist SET NOT NULL,
+    ALTER COLUMN content SET NOT NULL,
+    ALTER COLUMN spotify_track SET NOT NULL;

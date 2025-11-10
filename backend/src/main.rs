@@ -1,14 +1,19 @@
 mod database;
 use axum::routing::MethodFilter;
 use axum::{response::Html, routing::get, Extension, Router};
+use chordmate::database::Song;
 use futures::stream::{BoxStream, StreamExt as _};
-use juniper::{graphql_object, graphql_subscription, EmptyMutation, FieldError, RootNode};
+use juniper::{
+    graphql_object, graphql_subscription, EmptyMutation, FieldError, FieldResult, RootNode,
+};
 use juniper_axum::{graphiql, graphql, playground, ws};
 use juniper_graphql_ws::ConnectionConfig;
 use std::{sync::Arc, time::Duration};
 use tokio::{net::TcpListener, time::interval};
 use tokio_stream::wrappers::IntervalStream;
+use tower_http::cors::{AllowOrigin, Any, CorsLayer};
 use tower_http::services::fs::ServeDir;
+
 #[graphql_object]
 impl database::Database {
     /// Adds two `a` and `b` numbers.
@@ -24,6 +29,16 @@ impl database::Database {
             .unwrap_or_else(|e| panic!("Internal error: {}", e))
             .and_then(|row| row.try_get(key.as_str()))
             .unwrap_or_else(|e| format!("Error: {}", e))
+    }
+    pub async fn songs() -> FieldResult<Vec<Song>> {
+        let songs = vec![Song {
+            id: 0,
+            title: "Foo".to_string(),
+            artist: "Bar".to_string(),
+            spotify_track_id: "frhiu".to_string(),
+            content: "Hello Song".to_string(),
+        }];
+        Ok(songs)
     }
 }
 
@@ -56,6 +71,15 @@ async fn spa_index() -> Html<&'static str> {
 }
 
 fn router(database: database::Database) -> Router {
+    // During development, we want to use the frontend served by `npm start`.
+    // That's faster development cycles than `npm run build; cargo run`.
+    // However, we need to allow CORS to make it work.
+    // Make sure that `npm start` serves on the origin that is mentioned below.
+    let cors = CorsLayer::new()
+        .allow_origin(AllowOrigin::exact("http://localhost:3001".parse().unwrap()))
+        .allow_methods(Any)
+        .allow_headers(Any);
+
     let schema = Schema::new(database, EmptyMutation::new(), Subscription);
     Router::new()
         .nest_service("/static", ServeDir::new("../frontend/build/static"))
@@ -74,6 +98,7 @@ fn router(database: database::Database) -> Router {
         .route("/playground", get(playground("/graphql", "/subscriptions")))
         .route("/", get(homepage))
         .fallback(spa_index)
+        .layer(cors)
         .layer(Extension(Arc::new(schema)))
 }
 

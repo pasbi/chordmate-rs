@@ -1,4 +1,5 @@
 use deadpool_postgres::{ManagerConfig, Pool, RecyclingMethod, Runtime};
+use juniper::FieldResult;
 use tokio::task::JoinHandle;
 use tokio_postgres::{Error, NoTls, Row};
 
@@ -11,6 +12,17 @@ pub fn config() -> tokio_postgres::Config {
     pg_cfg.port(15432);
     pg_cfg.dbname("postgres");
     pg_cfg
+}
+
+use juniper::GraphQLObject;
+
+#[derive(GraphQLObject, Clone)]
+pub struct Song {
+    pub id: i32,
+    pub title: String,
+    pub artist: String,
+    pub spotify_track_id: String,
+    pub content: String,
 }
 
 pub struct Database {
