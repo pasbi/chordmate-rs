@@ -29,7 +29,7 @@ fn router(query: QLQuery, mutation: QLMutation) -> Router {
     // However, we need to allow CORS to make it work.
     // Make sure that `npm start` serves on the origin that is mentioned below.
     let cors = CorsLayer::new()
-        .allow_origin(AllowOrigin::exact("http://localhost:3001".parse().unwrap()))
+        .allow_origin(Any)
         .allow_methods(Any)
         .allow_headers(Any);
 
@@ -57,7 +57,7 @@ fn router(query: QLQuery, mutation: QLMutation) -> Router {
 
 #[tokio::main]
 async fn main() {
-    let listener = TcpListener::bind("127.0.0.1:3000")
+    let listener = TcpListener::bind("0.0.0.0:3000")
         .await
         .expect("Failed to start TCP listener.");
 

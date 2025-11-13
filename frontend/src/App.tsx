@@ -5,7 +5,7 @@ import {ApolloProvider} from "@apollo/client/react";
 import {useQuery} from "@apollo/client/react";
 
 const link = new HttpLink({
-  uri: "http://localhost:3000/graphql", // your Rust backend
+  uri: `http://${window.location.hostname}:3000/graphql`, // your Rust backend
 });
 
 const client = new ApolloClient({
