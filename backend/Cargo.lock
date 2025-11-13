@@ -200,6 +200,7 @@ name = "chordmate"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "deadpool",
  "deadpool-postgres",
  "dotenvy",
  "futures",

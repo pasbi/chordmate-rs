@@ -30,6 +30,7 @@ query GetSongs {
     songs {
         id
         title
+        artist
     }
 }`;
 
