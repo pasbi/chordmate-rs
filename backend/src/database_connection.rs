@@ -1,5 +1,4 @@
 use deadpool_postgres::{ManagerConfig, Pool, RecyclingMethod, Runtime};
-use juniper::FieldResult;
 use tokio::task::JoinHandle;
 use tokio_postgres::{Error, NoTls, Row};
 
@@ -14,38 +13,26 @@ pub fn config() -> tokio_postgres::Config {
     pg_cfg
 }
 
-use juniper::GraphQLObject;
-
-#[derive(GraphQLObject, Clone)]
-pub struct Song {
-    pub id: i32,
-    pub title: String,
-    pub artist: String,
-    pub spotify_track_id: String,
-    pub content: String,
+pub fn new_pool() -> Pool {
+    let manager = deadpool_postgres::Manager::from_config(
+        config(),
+        NoTls,
+        ManagerConfig {
+            recycling_method: RecyclingMethod::Fast,
+        },
+    );
+    Pool::builder(manager)
+        .max_size(5)
+        .runtime(Runtime::Tokio1)
+        .build()
+        .unwrap()
 }
 
-pub struct Database {
-    connection_pool: Pool,
+pub struct DatabaseConnection {
+    pub connection_pool: Pool,
 }
 
-impl Database {
-    pub fn new() -> Self {
-        let manager = deadpool_postgres::Manager::from_config(
-            config(),
-            NoTls,
-            ManagerConfig {
-                recycling_method: RecyclingMethod::Fast,
-            },
-        );
-        let connection_pool = Pool::builder(manager)
-            .max_size(5)
-            .runtime(Runtime::Tokio1)
-            .build()
-            .unwrap();
-        Database { connection_pool }
-    }
-
+impl DatabaseConnection {
     pub fn query(self: &Self, q: &str) -> JoinHandle<Result<Row, Error>> {
         // clone only creates a new handle to the same pool. It's using Arc internally.
         let pool = self.connection_pool.clone();

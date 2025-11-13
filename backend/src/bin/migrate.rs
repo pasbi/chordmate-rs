@@ -1,12 +1,12 @@
-use chordmate::database;
-
+use chordmate::database_connection;
 use refinery::embed_migrations;
 use tokio_postgres::NoTls;
+
 embed_migrations!("./migrations");
 
 #[tokio::main]
 async fn main() {
-    let config = database::config();
+    let config = database_connection::config();
     let (mut client, connection) = config.connect(NoTls).await.unwrap();
 
     // Drive the connection on a background task
