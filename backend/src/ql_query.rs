@@ -7,16 +7,6 @@ pub struct QLQuery {
     pub database_connection: DatabaseConnection,
 }
 
-fn row_to_song(row: &Row) -> Song {
-    Song {
-        id: row.get("id"),
-        title: row.get("title"),
-        artist: row.get("artist"),
-        spotify_track_id: "frhiu".to_string(),
-        content: "Hello Song".to_string(),
-    }
-}
-
 #[graphql_object]
 impl QLQuery {
     /// Adds two `a` and `b` numbers.
@@ -38,7 +28,7 @@ impl QLQuery {
     pub async fn songs(&self) -> FieldResult<Vec<Song>> {
         let client = self.database_connection.get().await;
         let statement = client
-            .prepare("SELECT id, title, artist FROM songs")
+            .prepare("SELECT id, title, artist, spotify_track, content FROM songs")
             .await
             .expect("SQL query preparation failed");
 
@@ -47,11 +37,7 @@ impl QLQuery {
             .await
             .expect("SQL query failed");
 
-        for row in &rows {
-            println!("{}", row.get::<_, String>("title"))
-        }
-
-        let songs: Vec<Song> = rows.iter().map(row_to_song).collect();
+        let songs: Vec<Song> = rows.iter().map(Song::from_row).collect();
         Ok(songs)
     }
 }

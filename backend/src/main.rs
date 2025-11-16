@@ -8,7 +8,7 @@ use juniper_axum::{graphiql, graphql, playground, ws};
 use juniper_graphql_ws::ConnectionConfig;
 use std::sync::Arc;
 use tokio::net::TcpListener;
-use tower_http::cors::{AllowOrigin, Any, CorsLayer};
+use tower_http::cors::{Any, CorsLayer};
 use tower_http::services::fs::ServeDir;
 
 type Schema = RootNode<QLQuery, QLMutation, EmptySubscription>;

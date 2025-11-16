@@ -1,4 +1,4 @@
-use deadpool_postgres::{Manager, ManagerConfig, Object, Pool, RecyclingMethod, Runtime};
+use deadpool_postgres::{ManagerConfig, Object, Pool, RecyclingMethod, Runtime};
 use tokio::task::JoinHandle;
 use tokio_postgres::{Error, NoTls, Row};
 

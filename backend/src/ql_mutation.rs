@@ -1,4 +1,5 @@
 use crate::database_connection::DatabaseConnection;
+use crate::song::Song;
 use juniper::graphql_object;
 
 pub struct QLMutation {
@@ -7,7 +8,28 @@ pub struct QLMutation {
 
 #[graphql_object]
 impl QLMutation {
-    fn add_song(title: String) -> bool {
-        true
+    async fn add_song(&self, title: String, artist: String) -> Song {
+        let client = self.database_connection.get().await;
+        let statement = client
+            .prepare(
+                "INSERT INTO songs (title, artist, content, spotify_track) VALUES ($1, $2, '', '') RETURNING *"
+            )
+            .await
+            .expect("SQL query preparation failed");
+
+        let row = client
+            .query_one(&statement, &[&title, &artist])
+            .await
+            .expect("SQL query failed");
+
+        println!(
+            "Inserted song with title: {}, '{}'",
+            row.get::<_, String>("title"),
+            row.get::<_, String>("spotify_track")
+        );
+
+        let song = Song::from_row(&row);
+        dbg!(&song);
+        song
     }
 }
