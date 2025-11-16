@@ -4,24 +4,8 @@ import {useMutation, useQuery} from "@apollo/client/react";
 import {gql} from "@apollo/client";
 import SongForm from "components/SongForm";
 import SongsList from "components/SongsList";
+import GetSongsData from "types/GetSongsData";
 
-
-interface GetSongsData {
-    songs: Song[];
-}
-
-interface AddSongMutationData {
-    addSong: {
-        id: string;
-        title: string;
-        artist: string;
-    };
-}
-
-interface AddSongMutationVars {
-    title: string;
-    artist: string;
-}
 
 const GET_SONGS = gql`
     query GetSongs {
@@ -58,7 +42,7 @@ interface AddSongVars {
 }
 
 
-export default function SongManager() {
+export default function SongsManager() {
     const [songs, setSongs] = useState<Song[]>([]);
     const {data, loading, error} = useQuery<GetSongsData>(GET_SONGS);
     const [deleteSong] = useMutation(DELETE_SONG);

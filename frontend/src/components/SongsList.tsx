@@ -1,5 +1,6 @@
 import React from "react";
 import Song from "types/Song";
+import {Link} from "react-router-dom";
 
 export default function SongsList({songs, onDelete}: { songs: Song[], onDelete: (id: number) => void }) {
     return (
@@ -10,7 +11,9 @@ export default function SongsList({songs, onDelete}: { songs: Song[], onDelete: 
                     <li key={song.id}>
                         <button onClick={() => onDelete(song.id)}>Delete</button>
                         &nbsp;
-                        <strong>{song.title || "(untitled)"}</strong> — {song.artist || "unknown"}
+                        <Link
+                            to={`/songs/${song.id}`}><strong>{song.title || "(untitled)"}</strong> — {song.artist || "unknown"}
+                        </Link>
                     </li>
                 ))}
             </ul>

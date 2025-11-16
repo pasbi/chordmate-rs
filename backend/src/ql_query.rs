@@ -40,4 +40,13 @@ impl QLQuery {
         let songs: Vec<Song> = rows.iter().map(Song::from_row).collect();
         Ok(songs)
     }
+    async fn song(&self, id: i32) -> Option<Song> {
+        let client = self.database_connection.get().await;
+        let statement = client
+            .prepare("SELECT * FROM songs WHERE id = $1")
+            .await
+            .unwrap();
+        let row = client.query_opt(&statement, &[&id]).await.unwrap();
+        row.as_ref().map(Song::from_row)
+    }
 }
