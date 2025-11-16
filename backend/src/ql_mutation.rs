@@ -15,7 +15,7 @@ impl QLMutation {
                 "INSERT INTO songs (title, artist, content, spotify_track) VALUES ($1, $2, '', '') RETURNING *"
             )
             .await
-            .expect("SQL query preparation failed");
+            .expect("SQL query preparation failed.");
 
         let row = client
             .query_one(&statement, &[&title, &artist])
@@ -31,5 +31,17 @@ impl QLMutation {
         let song = Song::from_row(&row);
         dbg!(&song);
         song
+    }
+
+    async fn delete_song(&self, id: i32) -> bool {
+        let client = self.database_connection.get().await;
+        let statement = client
+            .prepare("DELETE FROM songs WHERE id = $1")
+            .await
+            .expect("SQL query preparation failed.");
+        match client.execute(&statement, &[&id]).await {
+            Ok(n) if n > 0 => true,
+            _ => false,
+        }
     }
 }

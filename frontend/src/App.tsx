@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import './App.css';
 import {ApolloClient, InMemoryCache, gql, HttpLink} from "@apollo/client";
 import {ApolloProvider} from "@apollo/client/react";
@@ -14,7 +14,7 @@ const client = new ApolloClient({
 })
 
 interface Song {
-    id: string;
+    id: number;
     title: string;
     artist: string;
     spotify_track: string;
@@ -57,41 +57,27 @@ const ADD_SONG = gql`
     }
 `
 
-function SongsList() {
-    const {loading, error, data} = useQuery<GetSongsData>(GET_SONGS);
-    if (loading) return <p>Loading songs...</p>;
-    if (error) return <p>Error: {error.message}</p>;
-    if (!data) return <p>No data available</p>;
+const DELETE_SONG = gql`
+    mutation DeleteSong($id: Int!) {
+        deleteSong(id: $id)
+    }
+`;
 
-    return (
-        <div className="p-4">
-            <h2>🎵 Songs</h2>
-            <ul>
-                {data.songs.map((song: any) => (
-                    <li key={song.id}>
-                        <strong>{song.title || "(untitled)"}</strong> — {song.artist || "unknown"}
-                    </li>
-                ))}
-            </ul>
-        </div>
-    );
+interface AddSongData {
+    addSong: Song;
 }
 
-interface AddSongFormProps {
-    onSongAdded: (newSong: { id: string; title: string; artist: string }) => void;
+interface AddSongVars {
+    title: string;
+    artist: string;
 }
 
-function SongForm({onSongAdded}: AddSongFormProps) {
+
+function SongForm({onSongAdded}: { onSongAdded: (title: string, artist: string) => void }) {
     const [title, setTitle] = useState("");
     const [artist, setArtist] = useState("");
-    const [addSong, {data, loading, error}] = useMutation(ADD_SONG);
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        await addSong({variables: {title, artist}});
-    };
     return (
-        <form onSubmit={handleSubmit}>
+        <form>
             <input
                 type="text"
                 placeholder="Title"
@@ -106,22 +92,78 @@ function SongForm({onSongAdded}: AddSongFormProps) {
                 onChange={(e) => setArtist(e.target.value)}
                 required
             />
-            <button type="submit" disabled={loading}>
+            <button onClick={() => onSongAdded(title, artist)}>
                 Add Song
             </button>
-            {error && <p style={{color: "red"}}>Error: {error.message}</p>}
         </form>
     );
 }
+
+function SongsList({songs, onDelete}: { songs: Song[], onDelete: (id: number) => void }) {
+    return (
+        <div className="p-4">
+            <h2>🎵 Songs</h2>
+            <ul>
+                {songs.map(song => (
+                    <li key={song.id}>
+                        <button onClick={() => onDelete(song.id)}>Delete</button>
+                        &nbsp;
+                        <strong>{song.title || "(untitled)"}</strong> — {song.artist || "unknown"}
+                    </li>
+                ))}
+            </ul>
+        </div>
+    );
+}
+
+function SongManager() {
+    const [songs, setSongs] = useState<Song[]>([]);
+    const {data, loading, error} = useQuery<GetSongsData>(GET_SONGS);
+    const [deleteSong] = useMutation(DELETE_SONG);
+    const [addSong] = useMutation<AddSongData, AddSongVars>(ADD_SONG);
+
+    useEffect(() => {
+        if (data?.songs) {
+            setSongs(data.songs);
+        }
+    }, [data]);
+
+    if (loading) return <p>Loading songs...</p>;
+    if (error) return <p>Error: {error.message}</p>;
+    if (!data) return <p>No data available</p>;
+
+    const handleDelete = async (id: number) => {
+        try {
+            await deleteSong({variables: {id}});
+            setSongs(prev => prev.filter(song => song.id !== id));
+        } catch (err) {
+            console.error("Failed to delete song:", err);
+        }
+    };
+
+    const handleSubmit = async (title: string, artist: string) => {
+        const {data} = await addSong({variables: {title, artist}});
+        if (data?.addSong) {
+            setSongs(prev => [...prev, data.addSong]);
+        }
+    };
+
+    return (
+        <div>
+            <SongForm onSongAdded={handleSubmit}/>
+            <SongsList songs={songs} onDelete={handleDelete}/>
+        </div>
+    )
+
+}
+
 
 function App() {
     return (
         <ApolloProvider client={client}>
             <main style={{fontFamily: "sans-serif", padding: "1rem"}}>
                 <h1>My GraphQL Music App</h1>
-                <SongForm onSongAdded={function () {
-                }}/>
-                <SongsList/>
+                <SongManager/>
             </main>
         </ApolloProvider>
     );
