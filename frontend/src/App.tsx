@@ -157,8 +157,31 @@ function SongManager() {
 
 }
 
+function useSystemTheme() {
+    const [theme, setTheme] = useState('light');
+
+    useEffect(() => {
+        // Check system preference
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+
+        // Set initial theme
+        setTheme(prefersDark.matches ? 'dark' : 'light');
+
+        // Listen for changes
+        const listener = (e: { matches: any; }) => setTheme(e.matches ? 'dark' : 'light');
+        prefersDark.addEventListener('change', listener);
+
+        return () => prefersDark.removeEventListener('change', listener);
+    }, []);
+
+    return theme;
+}
 
 function App() {
+    const theme = useSystemTheme();
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', theme);
+    }, [theme]);
     return (
         <ApolloProvider client={client}>
             <main style={{fontFamily: "sans-serif", padding: "1rem"}}>
