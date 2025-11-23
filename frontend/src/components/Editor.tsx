@@ -5,13 +5,17 @@ import './Editor.css'
 
 interface EditorProps {
     content: string
+    onUpdate?: (content: string) => void
 }
 
 
-export default function Editor({content}: EditorProps) {
+export default function Editor({content, onUpdate}: EditorProps) {
     const editor = useEditor({
         extensions: [StarterKit],
         content,
+        onUpdate: ({editor}) => {
+            onUpdate?.(editor.getHTML())
+        },
     })
 
     return <div className="editor-wrapper">

@@ -44,4 +44,16 @@ impl QLMutation {
             _ => false,
         }
     }
+
+    async fn update_song_content(&self, id: i32, content: String) -> bool {
+        let client = self.database_connection.get().await;
+        let statement = client
+            .prepare("UPDATE songs SET content = $2 WHERE id = $1 RETURNING id, content;")
+            .await
+            .expect("SQL query preparation failed.");
+        match client.execute(&statement, &[&id, &content]).await {
+            Ok(n) if n == 1 => true,
+            _ => false,
+        }
+    }
 }
