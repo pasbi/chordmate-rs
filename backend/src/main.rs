@@ -1,5 +1,8 @@
+use axum::body::{Body, Bytes};
+use axum::http::Request;
+use axum::middleware::from_fn;
 use axum::routing::MethodFilter;
-use axum::{response::Html, routing::get, Extension, Router};
+use axum::{body, response::Html, routing::get, Extension, Router};
 use chordmate::database_connection::DatabaseConnection;
 use chordmate::ql_mutation::QLMutation;
 use chordmate::ql_query::QLQuery;
@@ -21,6 +24,20 @@ async fn homepage() -> Html<&'static str> {
 }
 async fn spa_index() -> Html<&'static str> {
     Html(include_str!("../../frontend/build/index.html"))
+}
+
+async fn log_requests(
+    mut req: Request<Body>,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let body = std::mem::replace(req.body_mut(), Body::empty());
+    let bytes = body::to_bytes(body, usize::MAX)
+        .await
+        .unwrap_or_else(|_| Bytes::new());
+    let body_str = String::from_utf8_lossy(&bytes);
+    println!("Raw request body: {}", body_str);
+    *req.body_mut() = Body::from(bytes);
+    next.run(req).await
 }
 
 fn router(query: QLQuery, mutation: QLMutation) -> Router {
@@ -53,6 +70,7 @@ fn router(query: QLQuery, mutation: QLMutation) -> Router {
         .fallback(spa_index)
         .layer(cors)
         .layer(Extension(Arc::new(schema)))
+        .layer(from_fn(log_requests))
 }
 
 #[tokio::main]
