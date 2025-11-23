@@ -25,15 +25,17 @@ function App() {
     return (
         <ApolloProvider client={client}>
             <Router>
-                <div>
+                <div className="app-container">
                     <nav>
                         <Link to="/">Songs</Link> | <Link to="/about">About</Link>
                     </nav>
-                    <Routes>
-                        <Route path="/" element={<SongsManager/>}/>
-                        <Route path="/about" element={<About/>}/>
-                        <Route path="/songs/:id" element={<SongDetail/>}/>
-                    </Routes>
+                    <div className="routes-wrapper">
+                        <Routes>
+                            <Route path="/" element={<SongsManager/>}/>
+                            <Route path="/about" element={<About/>}/>
+                            <Route path="/songs/:id" element={<SongDetail/>}/>
+                        </Routes>
+                    </div>
                 </div>
             </Router>
         </ApolloProvider>

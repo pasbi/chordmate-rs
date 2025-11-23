@@ -1,0 +1,20 @@
+
+.editor-wrapper {
+    flex: 1 1 auto;
+    display: flex;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.editor {
+    flex: 1;
+    min-height: 0;
+    padding: 16px;
+    font-family: monospace;
+    border: 1px solid var(--text-color);
+    white-space: pre-wrap;
+    outline: none;
+    overflow-y: auto;
+    color: var(--text-color);
+    background-color: var(--background-color);
+}

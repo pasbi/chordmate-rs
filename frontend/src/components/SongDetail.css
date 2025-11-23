@@ -1,0 +1,10 @@
+.song-detail-container {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.song-detail-container header {
+    flex: 0 0 auto;
+}
