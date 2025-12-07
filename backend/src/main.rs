@@ -6,6 +6,7 @@ use axum::{body, response::Html, routing::get, Extension, Router};
 use chordmate::database_connection::DatabaseConnection;
 use chordmate::ql_mutation::QLMutation;
 use chordmate::ql_query::QLQuery;
+use chordmate::spotify::{SpotifyClient, SpotifyError};
 use juniper::{EmptySubscription, RootNode};
 use juniper_axum::{graphiql, graphql, playground, ws};
 use juniper_graphql_ws::ConnectionConfig;
@@ -73,15 +74,12 @@ fn router(query: QLQuery, mutation: QLMutation) -> Router {
         .layer(from_fn(log_requests))
 }
 
-#[tokio::main]
-async fn main() {
+async fn serve(database_connection_pool: Pool) {
     let listener = TcpListener::bind("0.0.0.0:3000")
         .await
         .expect("Failed to start TCP listener.");
 
     println!("listening on http://{}", listener.local_addr().unwrap());
-    let database_connection_pool = chordmate::database_connection::new_pool();
-
     axum::serve(
         listener,
         router(
@@ -99,4 +97,23 @@ async fn main() {
     )
     .await
     .unwrap();
+}
+
+#[tokio::main]
+async fn main() {
+    let database_connection_pool = chordmate::database_connection::new_pool();
+    let server_handle = tokio::spawn(async move {
+        serve(database_connection_pool).await;
+    });
+    let spotify_client = SpotifyClient::new();
+    match spotify_client.get_spotify_token().await {
+        Ok(token) => {
+            println!("Spotify token: {}", token)
+        }
+        Err(err) => {
+            println!("Spotify error: {}", err)
+        }
+    }
+
+    server_handle.await.unwrap();
 }
