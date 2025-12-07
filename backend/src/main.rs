@@ -1,9 +1,8 @@
 use axum::body::{Body, Bytes};
-use axum::extract::Query;
-use axum::http::{Request, StatusCode};
+use axum::http::Request;
 use axum::middleware::from_fn;
 use axum::routing::MethodFilter;
-use axum::{body, response::Html, routing::get, Extension, Json, Router};
+use axum::{body, response::Html, routing::get, Extension, Router};
 use chordmate::database_connection::DatabaseConnection;
 use chordmate::ql_mutation::QLMutation;
 use chordmate::ql_query::QLQuery;
@@ -12,8 +11,6 @@ use deadpool_postgres::Pool;
 use juniper::{EmptySubscription, RootNode};
 use juniper_axum::{graphiql, graphql, playground, ws};
 use juniper_graphql_ws::ConnectionConfig;
-use serde::Deserialize;
-use serde_json::Value;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tower_http::cors::{Any, CorsLayer};
@@ -45,27 +42,6 @@ async fn log_requests(
     next.run(req).await
 }
 
-#[derive(Deserialize)]
-struct SearchQuery {
-    query: Option<String>,
-}
-
-async fn search_tracks_handler(
-    spotify_client: Extension<Arc<SpotifyClient>>,
-    Query(params): Query<SearchQuery>,
-) -> Result<Json<Value>, StatusCode> {
-    let result = spotify_client
-        .0
-        .search_tracks(params.query.as_deref().ok_or(StatusCode::BAD_REQUEST)?)
-        .await
-        .map_err(|e| {
-            eprintln!("Spotify search error: {:?}", e);
-            StatusCode::BAD_GATEWAY
-        })?;
-
-    Ok(Json(result))
-}
-
 fn router(query: QLQuery, mutation: QLMutation) -> Router {
     // During development, we want to use the frontend served by `npm start`.
     // That's faster development cycles than `npm run build; cargo run`.
@@ -92,15 +68,10 @@ fn router(query: QLQuery, mutation: QLMutation) -> Router {
         )
         .route("/graphiql", get(graphiql("/graphql", "/subscriptions")))
         .route("/playground", get(playground("/graphql", "/subscriptions")))
-        .route(
-            "/api/search-spotify-tracks",
-            axum::routing::get(search_tracks_handler),
-        )
         .route("/", get(homepage))
         .fallback(spa_index)
         .layer(cors)
         .layer(Extension(Arc::new(schema)))
-        .layer(Extension(Arc::new(SpotifyClient::new())))
         .layer(from_fn(log_requests))
 }
 
@@ -117,6 +88,7 @@ async fn serve(database_connection_pool: Pool) {
                 database_connection: DatabaseConnection {
                     connection_pool: database_connection_pool.clone(),
                 },
+                spotify_client: Arc::new(SpotifyClient::new()),
             },
             QLMutation {
                 database_connection: DatabaseConnection {

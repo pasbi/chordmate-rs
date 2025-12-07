@@ -1,0 +1,59 @@
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh; /* full viewport height */
+    background: var(--background-color);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    overflow: auto; /* allow scroll if content is taller than viewport */
+}
+
+.modal {
+    background: var(--background-color);
+    max-height: 90vh;
+    width: 90%;
+    max-width: 600px;
+    padding: 1rem;
+    border-radius: 8px;
+    overflow-y: auto; /* scrollbar for modal content */
+}
+
+.trackItem {
+    display: grid;
+    grid-template-columns: 60px 1fr; /* album art + text */
+    grid-template-rows: auto auto; /* two rows for text */
+    gap: 0.25rem 0.5rem; /* row gap, column gap */
+    align-items: center;
+    padding: 0.5rem;
+    cursor: pointer;
+    border-bottom: 1px solid #eee;
+}
+
+.trackItem:hover {
+    background: color-mix(in srgb, gray 50%, var(--background-color));
+}
+
+.trackAlbum {
+    grid-row: 1 / span 2; /* span two rows */
+    width: 60px;
+    height: 60px;
+    object-fit: cover;
+    border-radius: 4px;
+}
+
+.trackTitle {
+    grid-column: 2 / 3;
+    font-weight: bold;
+    font-size: 1rem;
+    color: var(--text-color);
+}
+
+.trackArtists {
+    grid-column: 2 / 3;
+    font-size: 0.875rem;
+    color: var(--text-color);
+}

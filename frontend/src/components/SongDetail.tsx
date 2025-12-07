@@ -6,6 +6,8 @@ import GetSongData from "types/GetSongData";
 import {Link} from "react-router-dom";
 import './SongDetail.css'
 import Editor from "components/Editor";
+import SpotifyTrack from "types/SpotifyTrack";
+import SpotifySearchModal from "./SpotifySearchModal";
 
 const GET_SONG = gql`
     query GetSong($id: Int!) {
@@ -41,6 +43,7 @@ export default function SongDetail() {
         variables: {id},
     });
     const [updateSongContent, {loading: saving}] = useMutation<UpdateSongContentData, UpdateSongContentVars>(UPDATE_SONG_CONTENT);
+    const [modalOpen, setModalOpen] = React.useState(false);
     const [editorContent, setEditorContent] = React.useState<string>('');
 
     React.useEffect(() => {
@@ -74,6 +77,13 @@ export default function SongDetail() {
 
     }
 
+    const handleOpenModal = () => setModalOpen(true);
+    const handleCloseModal = () => setModalOpen(false);
+
+    const handleTrackSelected = (track: SpotifyTrack) => {
+        console.log(`Selected: ${JSON.stringify(track)}`)
+        handleCloseModal();
+    };
 
     return (
         <div className="song-detail-container">
@@ -84,6 +94,11 @@ export default function SongDetail() {
                 <div>
                     <button onClick={save}>Save</button>
                 </div>
+                <button onClick={handleOpenModal}>Link Spotify Track</button>
+                {modalOpen && (
+                    <SpotifySearchModal initialQuery={`${song.title} ${song.artist}`} onSelect={handleTrackSelected}
+                                        onClose={handleCloseModal}/>
+                )}
             </header>
             <Editor content={song.content} onUpdate={setEditorContent}/>
         </div>

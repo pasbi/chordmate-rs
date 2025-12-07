@@ -3,3 +3,4 @@ pub mod ql_mutation;
 pub mod ql_query;
 pub mod song;
 pub mod spotify;
+pub mod spotify_track;
