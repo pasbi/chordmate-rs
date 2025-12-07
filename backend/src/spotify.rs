@@ -3,10 +3,11 @@ use base64::Engine;
 use dotenvy::dotenv;
 use reqwest::Client;
 use serde::Deserialize;
+use serde_json::Value;
 use std::env;
 use std::time::{Duration, Instant};
 use thiserror::Error;
-use tokio::sync::{Mutex, OnceCell};
+use tokio::sync::Mutex;
 
 #[derive(Deserialize, Debug)]
 struct SpotifyTokenResponse {
@@ -38,17 +39,12 @@ pub enum SpotifyError {
 impl SpotifyClient {
     pub fn new() -> Self {
         dotenv().ok();
-        let c = SpotifyClient {
+        SpotifyClient {
             client_id: env::var("SPOTIFY_CLIENT_ID").expect("SPOTIFY_CLIENT_ID is not set."),
             client_secret: env::var("SPOTIFY_CLIENT_SECRET")
                 .expect("SPOTIFY_CLIENT_SECRET is not set"),
             token_cache: Mutex::new(None),
-        };
-        println!(
-            "SPOTIFY_CLIENT_ID: {}, SPOTIFY_CLIENT_SECRET: {}",
-            c.client_id, c.client_secret
-        );
-        c
+        }
     }
 
     async fn request_new_token(&self) -> Result<CachedToken, SpotifyError> {
@@ -97,5 +93,28 @@ impl SpotifyClient {
         let token = new_token.token.clone();
         *cache = Some(new_token);
         Ok(token)
+    }
+
+    pub async fn search_tracks(&self, query: &str) -> Result<Value, SpotifyError> {
+        let token = self.get_spotify_token().await?;
+        let client = Client::new();
+        let res = client
+            .get("https://api.spotify.com/v1/search")
+            .query(&[("q", query), ("type", "track")])
+            .bearer_auth(token)
+            .send()
+            .await
+            .map_err(SpotifyError::from)?;
+
+        if !res.status().is_success() {
+            return Err(SpotifyError::Api(format!(
+                "Spotify returned {}: {}",
+                res.status(),
+                res.text().await.unwrap_or_default(),
+            )));
+        }
+
+        let json: Value = res.json().await.map_err(SpotifyError::from)?;
+        Ok(json)
     }
 }
