@@ -52,4 +52,14 @@ impl QLMutation {
         let row = client.query_one(&statement, &[&id, &content]).await?;
         Ok(row.try_get("id")?)
     }
+
+    async fn update_song_track(&self, id: i32, track: String) -> FieldResult<i32> {
+        let client = self.database_connection.get().await?;
+        let statement = client
+            .prepare("UPDATE songs SET spotify_track = $2 WHERE id = $1 RETURNING id;")
+            .await
+            .expect("SQL query preparation failed.");
+        let row = client.query_one(&statement, &[&id, &track]).await?;
+        Ok(row.try_get("id")?)
+    }
 }
