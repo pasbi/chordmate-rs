@@ -1,25 +1,9 @@
 use crate::database_connection::DatabaseConnection;
 use crate::song::Song;
-use juniper::{graphql_object, FieldError, FieldResult, Value};
-use tokio_postgres::Error;
+use juniper::{graphql_object, FieldResult};
 
 pub struct QLMutation {
     pub database_connection: DatabaseConnection,
-}
-
-fn expect_1(n: Result<u64, Error>, action: &str) -> FieldResult<bool> {
-    match n {
-        Ok(n) if n == 1 => Ok(true),
-        Ok(n) if n == 0 => Ok(false),
-        Ok(n) => Err(FieldError::new(
-            format!("Unexpected number of rows {action}: {n}"),
-            Value::scalar(n as i32),
-        )),
-        Err(e) => Err(FieldError::new(
-            "Database execution error",
-            Value::scalar(e.to_string()),
-        )),
-    }
 }
 
 #[graphql_object]
@@ -52,21 +36,20 @@ impl QLMutation {
     async fn delete_song(&self, id: i32) -> FieldResult<bool> {
         let client = self.database_connection.get().await?;
         let statement = client
-            .prepare("DELETE FROM songs WHERE id = $1")
+            .prepare("DELETE FROM songs WHERE id = $1 RETURNING id;")
             .await
             .expect("SQL query preparation failed.");
-        expect_1(client.execute(&statement, &[&id]).await, "deleted")
+        let row = client.query_one(&statement, &[&id]).await?;
+        Ok(row.try_get("id")?)
     }
 
-    async fn update_song_content(&self, id: i32, content: String) -> FieldResult<bool> {
+    async fn update_song_content(&self, id: i32, content: String) -> FieldResult<i32> {
         let client = self.database_connection.get().await?;
         let statement = client
-            .prepare("UPDATE songs SET content = $2 WHERE id = $1 RETURNING id, content;")
+            .prepare("UPDATE songs SET content = $2 WHERE id = $1 RETURNING id;")
             .await
             .expect("SQL query preparation failed.");
-        expect_1(
-            client.execute(&statement, &[&id, &content]).await,
-            "updated",
-        )
+        let row = client.query_one(&statement, &[&id, &content]).await?;
+        Ok(row.try_get("id")?)
     }
 }
