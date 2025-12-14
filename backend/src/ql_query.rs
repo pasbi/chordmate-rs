@@ -2,7 +2,7 @@ use crate::database_connection::DatabaseConnection;
 use crate::song::Song;
 use crate::spotify::SpotifyClient;
 use crate::spotify_track::SpotifyTrack;
-use juniper::{graphql_object, FieldResult};
+use juniper::{graphql_object, FieldError, FieldResult, Value};
 use std::sync::Arc;
 use tokio_postgres::Row;
 
@@ -14,7 +14,7 @@ pub struct QLQuery {
 #[graphql_object]
 impl QLQuery {
     pub async fn songs(&self) -> FieldResult<Vec<Song>> {
-        let client = self.database_connection.get().await;
+        let client = self.database_connection.get().await?;
         let statement = client
             .prepare("SELECT id, title, artist, spotify_track, content FROM songs")
             .await
@@ -25,17 +25,19 @@ impl QLQuery {
             .await
             .expect("SQL query failed");
 
-        let songs: Vec<Song> = rows.iter().map(Song::from_row).collect();
-        Ok(songs)
+        rows.iter()
+            .map(|row| {
+                Song::from_row(row).map_err(|e| {
+                    FieldError::new("Failed to parse song.", Value::scalar(e.to_string()))
+                })
+            })
+            .collect::<FieldResult<Vec<Song>>>()
     }
-    async fn song(&self, id: i32) -> Option<Song> {
-        let client = self.database_connection.get().await;
-        let statement = client
-            .prepare("SELECT * FROM songs WHERE id = $1")
-            .await
-            .unwrap();
-        let row = client.query_opt(&statement, &[&id]).await.unwrap();
-        row.as_ref().map(Song::from_row)
+    async fn song(&self, id: i32) -> FieldResult<Song> {
+        let client = self.database_connection.get().await?;
+        let statement = client.prepare("SELECT * FROM songs WHERE id = $1").await?;
+        let row = client.query_one(&statement, &[&id]).await?;
+        Ok(Song::from_row(&row)?)
     }
 
     async fn search_spotify_tracks(&self, query: String) -> FieldResult<Vec<SpotifyTrack>> {

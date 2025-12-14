@@ -1,3 +1,4 @@
+use deadpool::managed::PoolError;
 use deadpool_postgres::{ManagerConfig, Object, Pool, RecyclingMethod, Runtime};
 use tokio::task::JoinHandle;
 use tokio_postgres::{Error, NoTls, Row};
@@ -40,8 +41,10 @@ impl DatabaseConnection {
         tokio::spawn(async move { pool.get().await.unwrap().query_one(&q, &[]).await })
     }
 
-    pub async fn get(&self) -> Object {
+    pub async fn get(&self) -> Result<Object, PoolError<Error>> {
         let pool = self.connection_pool.clone();
-        pool.get().await.expect("Failed to get client from pool.")
+        pool.get()
+            .await
+            .inspect_err(|error| eprintln!("Error: {error}"))
     }
 }
