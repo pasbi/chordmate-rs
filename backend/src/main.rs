@@ -1,16 +1,21 @@
 use axum::body::{Body, Bytes};
-use axum::http::Request;
+use axum::extract::Query;
+use axum::http::{Request, StatusCode};
 use axum::middleware::from_fn;
-use axum::routing::MethodFilter;
-use axum::{body, response::Html, routing::get, Extension, Router};
+use axum::response::{IntoResponse, Redirect};
+use axum::routing::{post, MethodFilter};
+use axum::{body, response::Html, routing::get, Extension, Json, Router};
 use chordmate::database_connection::DatabaseConnection;
 use chordmate::ql_mutation::QLMutation;
 use chordmate::ql_query::QLQuery;
-use chordmate::spotify::SpotifyClient;
+use chordmate::spotify::{SpotifyClient, TokenError};
 use deadpool_postgres::Pool;
+use dotenvy::dotenv;
 use juniper::{EmptySubscription, RootNode};
 use juniper_axum::{graphiql, graphql, playground, ws};
 use juniper_graphql_ws::ConnectionConfig;
+use serde::Deserialize;
+use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tower_http::cors::{Any, CorsLayer};
@@ -28,6 +33,7 @@ async fn spa_index() -> Html<&'static str> {
     Html(include_str!("../../frontend/build/index.html"))
 }
 
+#[allow(unused)]
 async fn log_requests(
     mut req: Request<Body>,
     next: axum::middleware::Next,
@@ -42,7 +48,37 @@ async fn log_requests(
     next.run(req).await
 }
 
-fn router(query: QLQuery, mutation: QLMutation) -> Router {
+#[derive(Deserialize)]
+struct SpotifyCode {
+    code: String,
+}
+async fn spotify_callback(
+    query: Query<HashMap<String, String>>,
+    Extension(spotify_client): Extension<Arc<SpotifyClient>>,
+) -> Result<Redirect, (StatusCode, &'static str)> {
+    let code = query
+        .get("code")
+        .ok_or((StatusCode::BAD_REQUEST, "Missing code"))?;
+
+    spotify_client
+        .exchange_code_for_token(code)
+        .await
+        .map_err(|e| {
+            let message = match e {
+                TokenError::Missing => String::from("missing"),
+                TokenError::FailedToGet(s) => {
+                    format!("failed to get: {s}")
+                }
+            };
+            println!("message: {message}");
+            (StatusCode::BAD_REQUEST, "Failed to get token.")
+        })?;
+
+    let state = query.get("state").map(|s| s.as_str()).unwrap_or("/");
+
+    Ok(Redirect::to(state))
+}
+fn router(query: QLQuery, mutation: QLMutation, spotify_client: Arc<SpotifyClient>) -> Router {
     // During development, we want to use the frontend served by `npm start`.
     // That's faster development cycles than `npm run build; cargo run`.
     // However, we need to allow CORS to make it work.
@@ -68,11 +104,21 @@ fn router(query: QLQuery, mutation: QLMutation) -> Router {
         )
         .route("/graphiql", get(graphiql("/graphql", "/subscriptions")))
         .route("/playground", get(playground("/graphql", "/subscriptions")))
+        .route("/callback", get(spotify_callback))
+        .route(
+            "/spotify-client-id",
+            get(|| async { Json(SpotifyClient::client_id()) }),
+        )
+        .route(
+            "/spotify-redirect-uri",
+            get(|| async { Json(SpotifyClient::redirect_uri()) }),
+        )
         .route("/", get(homepage))
         .fallback(spa_index)
         .layer(cors)
         .layer(Extension(Arc::new(schema)))
-        .layer(from_fn(log_requests))
+        .layer(Extension(spotify_client.clone()))
+    // .layer(from_fn(log_requests))
 }
 
 async fn serve(database_connection_pool: Pool) {
@@ -81,6 +127,7 @@ async fn serve(database_connection_pool: Pool) {
         .expect("Failed to start TCP listener.");
 
     println!("listening on http://{}", listener.local_addr().unwrap());
+    let spotify_client = Arc::new(SpotifyClient::new());
     axum::serve(
         listener,
         router(
@@ -88,13 +135,14 @@ async fn serve(database_connection_pool: Pool) {
                 database_connection: DatabaseConnection {
                     connection_pool: database_connection_pool.clone(),
                 },
-                spotify_client: Arc::new(SpotifyClient::new()),
+                spotify_client: spotify_client.clone(),
             },
             QLMutation {
                 database_connection: DatabaseConnection {
                     connection_pool: database_connection_pool.clone(),
                 },
             },
+            spotify_client,
         ),
     )
     .await
@@ -103,6 +151,7 @@ async fn serve(database_connection_pool: Pool) {
 
 #[tokio::main]
 async fn main() {
+    dotenv().ok();
     let database_connection_pool = chordmate::database_connection::new_pool();
     let server_handle = tokio::spawn(async move {
         serve(database_connection_pool).await;

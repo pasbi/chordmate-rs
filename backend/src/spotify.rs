@@ -1,102 +1,177 @@
-use base64::engine::general_purpose;
-use base64::Engine;
-use dotenvy::dotenv;
+use juniper::{graphql_value, FieldError, FieldResult};
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::Value;
 use std::env;
 use std::time::{Duration, Instant};
-use thiserror::Error;
 use tokio::sync::Mutex;
 
-#[derive(Deserialize, Debug)]
-struct SpotifyTokenResponse {
+#[derive(Deserialize)]
+struct TokenResponse {
     access_token: String,
+    refresh_token: String,
+    token_type: String,
     expires_in: u64,
+    scope: String,
 }
 
-struct CachedToken {
-    token: String,
+struct StoredToken {
+    access_token: String,
+    refresh_token: String,
+    token_type: String,
     expires_at: Instant,
+    scope: String,
 }
-
 pub struct SpotifyClient {
-    client_id: String,
-    client_secret: String,
-    token_cache: Mutex<Option<CachedToken>>,
+    token_cache: Mutex<Option<StoredToken>>,
 }
 
-#[derive(Error, Debug)]
-pub enum SpotifyError {
-    #[error("HTTP request failed: {0}")]
-    Http(#[from] reqwest::Error),
-    #[error("Spotify API returned error: {0}")]
-    Api(String),
-    #[error("Missing access token in response")]
-    MissingToken,
+#[derive(Deserialize)]
+struct TokenErrorResponse {
+    error: String,
+    error_description: String,
+}
+
+pub enum TokenError {
+    Missing,
+    FailedToGet(String),
+}
+
+impl From<TokenError> for FieldError {
+    fn from(err: TokenError) -> Self {
+        match err {
+            TokenError::Missing => FieldError::new(
+                "User is not authenticated",
+                graphql_value!({"code": "UNAUTHENTICATED"}),
+            ),
+            TokenError::FailedToGet(message) => FieldError::new(
+                format!("Failed to get token: {message}"),
+                graphql_value!({"code": "TOKEN_ERROR"}),
+            ),
+        }
+    }
 }
 
 impl SpotifyClient {
     pub fn new() -> Self {
-        dotenv().ok();
         SpotifyClient {
-            client_id: env::var("SPOTIFY_CLIENT_ID").expect("SPOTIFY_CLIENT_ID is not set."),
-            client_secret: env::var("SPOTIFY_CLIENT_SECRET")
-                .expect("SPOTIFY_CLIENT_SECRET is not set"),
             token_cache: Mutex::new(None),
         }
     }
 
-    async fn request_new_token(&self) -> Result<CachedToken, SpotifyError> {
-        let client = Client::new();
-        let auth_header =
-            general_purpose::STANDARD.encode(format!("{}:{}", self.client_id, self.client_secret));
-        let res = client
+    pub fn client_id() -> String {
+        env::var("SPOTIFY_CLIENT_ID").expect("SPOTIFY_CLIENT_ID is not set.")
+    }
+    pub fn client_secret() -> String {
+        env::var("SPOTIFY_CLIENT_SECRET").expect("SPOTIFY_CLIENT_ID is not set.")
+    }
+    pub fn redirect_uri() -> String {
+        env::var("SPOTIFY_REDIRECT_URI").expect("SPOTIFY_CLIENT_ID is not set.")
+    }
+
+    pub async fn exchange_code_for_token(&self, code: &str) -> Result<bool, TokenError> {
+        let client_secret = SpotifyClient::client_secret();
+        let client_id = SpotifyClient::client_id();
+        let redirect_uri = SpotifyClient::redirect_uri();
+        let params = [
+            ("grant_type", "authorization_code"),
+            ("code", code),
+            ("redirect_uri", redirect_uri.as_str()),
+            ("client_id", client_id.as_str()),
+            ("client_secret", client_secret.as_str()),
+        ];
+        let resp = Client::new()
             .post("https://accounts.spotify.com/api/token")
-            .header("Authorization", format!("Basic {}", auth_header))
-            .header("Content-Type", "application/x-www-form-urlencoded")
-            .body("grant_type=client_credentials")
+            .form(&params)
             .send()
             .await
-            .expect("Failed to send request");
-        if !res.status().is_success() {
-            return Err(SpotifyError::Api(format!(
-                "Spotify returned status {}: {}",
-                res.status(),
-                res.text().await.unwrap_or_default(),
-            )));
-        }
-        let token_res: SpotifyTokenResponse = res.json().await?;
-        if token_res.access_token.is_empty() {
-            return Err(SpotifyError::MissingToken);
+            .map_err(|e| TokenError::FailedToGet(e.to_string()))?;
+        let status = resp.status();
+        let text = resp
+            .text()
+            .await
+            .map_err(|e| TokenError::FailedToGet(e.to_string()))?;
+
+        if !status.is_success() {
+            return if let Ok(err) = serde_json::from_str::<TokenErrorResponse>(&text) {
+                return Err(TokenError::FailedToGet(format!(
+                    "{}: {}",
+                    err.error, err.error_description
+                )));
+            } else {
+                Err(TokenError::FailedToGet(text))
+            };
         }
 
-        Ok(CachedToken {
-            token: token_res.access_token.clone(),
-            expires_at: Instant::now() + Duration::from_secs(token_res.expires_in)
+        let resp: TokenResponse = serde_json::from_str(&text).map_err(|e| {
+            TokenError::FailedToGet(format!(
+                "Failed to parse {} into TokenResponse: {}",
+                text,
+                e.to_string()
+            ))
+        })?;
+        let mut guard = self.token_cache.lock().await;
+        *guard = Some(StoredToken {
+            token_type: resp.token_type,
+            access_token: resp.access_token,
+            refresh_token: resp.refresh_token,
+            expires_at: Instant::now() + Duration::from_secs(resp.expires_in)
                 - Duration::from_secs(60),
-        })
+            scope: resp.scope,
+        });
+
+        Ok(true)
     }
 
-    pub async fn get_spotify_token(&self) -> Result<String, SpotifyError> {
-        {
-            let cache = self.token_cache.lock().await;
-            if let Some(cached) = &*cache {
-                if !cached.token.is_empty() && Instant::now() < cached.expires_at {
-                    return Ok(cached.token.clone());
+    async fn refresh_access_token(&self) -> Result<String, TokenError> {
+        let refresh_token = self.get_refresh_token().await?;
+        let client_secret = SpotifyClient::client_secret();
+        let client_id = SpotifyClient::client_id();
+        let params = [
+            ("grant_type", "refresh_token"),
+            ("refresh_token", refresh_token.as_str()),
+            ("client_id", client_id.as_str()),
+            ("client_secret", client_secret.as_str()),
+        ];
+
+        let resp = Client::new()
+            .post("https://accounts.spotify.com/api/token")
+            .form(&params)
+            .send()
+            .await
+            .map_err(|e| TokenError::FailedToGet(e.to_string()))?
+            .json::<TokenResponse>()
+            .await
+            .map_err(|e| TokenError::FailedToGet(e.to_string()))?;
+
+        Ok(resp.access_token)
+    }
+
+    async fn get_access_token(&self) -> Result<String, TokenError> {
+        let guard = self.token_cache.lock().await;
+        match &*guard {
+            Some(token) => {
+                if token.expires_at < Instant::now() {
+                    self.refresh_access_token().await?;
+                    Ok(token.access_token.clone())
+                } else {
+                    Ok(token.access_token.clone())
                 }
             }
+            _ => Err(TokenError::Missing),
         }
-
-        let new_token = self.request_new_token().await?;
-        let mut cache = self.token_cache.lock().await;
-        let token = new_token.token.clone();
-        *cache = Some(new_token);
-        Ok(token)
     }
 
-    pub async fn search_tracks(&self, query: &str) -> Result<Value, SpotifyError> {
-        let token = self.get_spotify_token().await?;
+    async fn get_refresh_token(&self) -> Result<String, TokenError> {
+        let guard = self.token_cache.lock().await;
+        match &*guard {
+            Some(token) => Ok(token.refresh_token.clone()),
+            _ => Err(TokenError::Missing),
+        }
+    }
+
+    pub async fn search_tracks(&self, query: &str) -> FieldResult<Value> {
+        let token = self.get_access_token().await?;
         let client = Client::new();
         let res = client
             .get("https://api.spotify.com/v1/search")
@@ -104,17 +179,21 @@ impl SpotifyClient {
             .bearer_auth(token)
             .send()
             .await
-            .map_err(SpotifyError::from)?;
+            .map_err(|e| {
+                FieldError::new(e.to_string(), graphql_value!({"message": e.to_string()}))
+            })?;
 
         if !res.status().is_success() {
-            return Err(SpotifyError::Api(format!(
-                "Spotify returned {}: {}",
-                res.status(),
-                res.text().await.unwrap_or_default(),
-            )));
+            return Err(FieldError::new(
+                format!(
+                    "Spotify returned {}: {}",
+                    res.status(),
+                    res.text().await.unwrap_or_default(),
+                ),
+                graphql_value!({}),
+            ));
         }
 
-        let json: Value = res.json().await.map_err(SpotifyError::from)?;
-        Ok(json)
+        Ok(res.json().await?)
     }
 }

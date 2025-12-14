@@ -41,13 +41,7 @@ impl QLQuery {
     }
 
     async fn search_spotify_tracks(&self, query: String) -> FieldResult<Vec<SpotifyTrack>> {
-        let json = self
-            .spotify_client
-            .search_tracks(&query)
-            .await
-            .map_err(|e| {
-                juniper::FieldError::new("Spotify API error", juniper::Value::scalar(e.to_string()))
-            })?;
+        let json = self.spotify_client.search_tracks(&query).await?;
 
         let tracks = json["tracks"]["items"]
             .as_array()
