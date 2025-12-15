@@ -106,12 +106,18 @@ fn router(query: QLQuery, mutation: QLMutation, spotify_client: Arc<SpotifyClien
         .route("/playground", get(playground("/graphql", "/subscriptions")))
         .route("/callback", get(spotify_callback))
         .route(
-            "/spotify-client-id",
-            get(|| async { Json(SpotifyClient::client_id()) }),
-        )
-        .route(
-            "/spotify-redirect-uri",
-            get(|| async { Json(SpotifyClient::redirect_uri()) }),
+            "/spotify",
+            get({
+                let spotify_client = spotify_client.clone();
+                || async move {
+                    let access_token = spotify_client.access_token().await.ok();
+                    Json(serde_json::json!({
+                        "clientId": spotify_client.client_id(),
+                        "redirectUri": spotify_client.redirect_uri(),
+                        "accessToken": access_token,
+                    }))
+                }
+            }),
         )
         .route("/", get(homepage))
         .fallback(spa_index)

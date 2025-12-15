@@ -34,22 +34,18 @@ interface SpotifySearchModalProps {
 }
 
 async function startSpotifyOauthFlow(currentPath: string) {
-  const clientId = await fetch(
-    `http://${window.location.hostname}:3000/spotify-client-id`,
+  const spotifyApi = await fetch(
+    `http://${window.location.hostname}:3000/spotify`,
   ).then((res) => res.json());
 
-  const redirectUri = await fetch(
-    `http://${window.location.hostname}:3000/spotify-redirect-uri`,
-  ).then((res) => res.json());
-
-  console.log(`REduri: ${redirectUri}`)
+  console.log(JSON.stringify(spotifyApi));
 
   const scope = encodeURIComponent(
-    "user-read-private user-read-email user-modify-playback-state user-read-playback-state",
+    "streaming user-read-private user-read-email user-modify-playback-state user-read-playback-state",
   );
 
   const state = encodeURIComponent(currentPath);
-  const authUrl = `https://accounts.spotify.com/authorize?client_id=${clientId}&response_type=code&redirect_uri=${redirectUri}&scope=${scope}&state=${state}`;
+  const authUrl = `https://accounts.spotify.com/authorize?client_id=${spotifyApi.clientId}&response_type=code&redirect_uri=${spotifyApi.redirectUri}&scope=${scope}&state=${state}`;
   window.location.href = authUrl;
 }
 

@@ -24,6 +24,9 @@ struct StoredToken {
 }
 pub struct SpotifyClient {
     token_cache: Mutex<Option<StoredToken>>,
+    client_id: String,
+    client_secret: String,
+    redirect_uri: String,
 }
 
 #[derive(Deserialize)]
@@ -56,29 +59,30 @@ impl SpotifyClient {
     pub fn new() -> Self {
         SpotifyClient {
             token_cache: Mutex::new(None),
+            client_id: env::var("SPOTIFY_CLIENT_ID").expect("SPOTIFY_CLIENT_ID is not set."),
+            client_secret: env::var("SPOTIFY_CLIENT_SECRET")
+                .expect("SPOTIFY_CLIENT_ID is not set."),
+            redirect_uri: env::var("SPOTIFY_REDIRECT_URI").expect("SPOTIFY_CLIENT_ID is not set."),
         }
     }
 
-    pub fn client_id() -> String {
-        env::var("SPOTIFY_CLIENT_ID").expect("SPOTIFY_CLIENT_ID is not set.")
+    pub fn client_id(&self) -> &str {
+        self.client_id.as_ref()
     }
-    pub fn client_secret() -> String {
-        env::var("SPOTIFY_CLIENT_SECRET").expect("SPOTIFY_CLIENT_ID is not set.")
+    pub fn client_secret(&self) -> &str {
+        self.client_secret.as_ref()
     }
-    pub fn redirect_uri() -> String {
-        env::var("SPOTIFY_REDIRECT_URI").expect("SPOTIFY_CLIENT_ID is not set.")
+    pub fn redirect_uri(&self) -> &str {
+        self.redirect_uri.as_ref()
     }
 
     pub async fn exchange_code_for_token(&self, code: &str) -> Result<bool, TokenError> {
-        let client_secret = SpotifyClient::client_secret();
-        let client_id = SpotifyClient::client_id();
-        let redirect_uri = SpotifyClient::redirect_uri();
         let params = [
             ("grant_type", "authorization_code"),
             ("code", code),
-            ("redirect_uri", redirect_uri.as_str()),
-            ("client_id", client_id.as_str()),
-            ("client_secret", client_secret.as_str()),
+            ("redirect_uri", self.redirect_uri()),
+            ("client_id", self.client_id()),
+            ("client_secret", self.client_secret()),
         ];
         let resp = Client::new()
             .post("https://accounts.spotify.com/api/token")
@@ -125,13 +129,11 @@ impl SpotifyClient {
 
     async fn refresh_access_token(&self) -> Result<String, TokenError> {
         let refresh_token = self.get_refresh_token().await?;
-        let client_secret = SpotifyClient::client_secret();
-        let client_id = SpotifyClient::client_id();
         let params = [
             ("grant_type", "refresh_token"),
             ("refresh_token", refresh_token.as_str()),
-            ("client_id", client_id.as_str()),
-            ("client_secret", client_secret.as_str()),
+            ("client_id", self.client_id()),
+            ("client_secret", self.client_secret()),
         ];
 
         let resp = Client::new()
@@ -147,19 +149,22 @@ impl SpotifyClient {
         Ok(resp.access_token)
     }
 
-    async fn get_access_token(&self) -> Result<String, TokenError> {
-        let guard = self.token_cache.lock().await;
-        match &*guard {
-            Some(token) => {
-                if token.expires_at < Instant::now() {
-                    self.refresh_access_token().await?;
-                    Ok(token.access_token.clone())
-                } else {
-                    Ok(token.access_token.clone())
+    pub async fn access_token(&self) -> Result<String, TokenError> {
+        {
+            let guard = self.token_cache.lock().await;
+            if let Some(token) = &*guard {
+                if token.expires_at > Instant::now() {
+                    return Ok(token.access_token.clone());
                 }
             }
-            _ => Err(TokenError::Missing),
         }
+        self.refresh_access_token().await?;
+        let guard = self.token_cache.lock().await;
+        guard
+            .as_ref()
+            .filter(|token| token.expires_at > Instant::now())
+            .map(|token| token.access_token.clone())
+            .ok_or(TokenError::Missing)
     }
 
     async fn get_refresh_token(&self) -> Result<String, TokenError> {
@@ -171,7 +176,7 @@ impl SpotifyClient {
     }
 
     pub async fn search_tracks(&self, query: &str) -> FieldResult<Value> {
-        let token = self.get_access_token().await?;
+        let token = self.access_token().await?;
         let client = Client::new();
         let res = client
             .get("https://api.spotify.com/v1/search")
