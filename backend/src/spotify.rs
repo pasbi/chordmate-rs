@@ -203,4 +203,13 @@ impl SpotifyClient {
 
         Ok(res.json().await?)
     }
+
+    pub async fn access_token_expires_in(&self) -> Duration {
+        let guard = self.token_cache.lock().await;
+        if let Some(guard) = &*guard {
+            guard.expires_at - Instant::now()
+        } else {
+            Duration::from_secs(0)
+        }
+    }
 }

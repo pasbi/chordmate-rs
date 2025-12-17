@@ -110,11 +110,11 @@ fn router(query: QLQuery, mutation: QLMutation, spotify_client: Arc<SpotifyClien
             get({
                 let spotify_client = spotify_client.clone();
                 || async move {
-                    let access_token = spotify_client.access_token().await.ok();
                     Json(serde_json::json!({
                         "clientId": spotify_client.client_id(),
                         "redirectUri": spotify_client.redirect_uri(),
-                        "accessToken": access_token,
+                        "accessToken": spotify_client.access_token().await.ok(),
+                        "expiresInSeconds": spotify_client.access_token_expires_in().await.as_secs(),
                     }))
                 }
             }),
