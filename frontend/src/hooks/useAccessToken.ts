@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 
 interface TokenResponse {
   accessToken: string;
-  expiresIn: number;
+  expiresInSeconds: number;
 }
 
 export function useAccessToken() {
@@ -16,11 +16,12 @@ export function useAccessToken() {
         `http://${window.location.hostname}:3000/spotify`,
       );
       const data: TokenResponse = await res.json();
+      console.log(JSON.stringify(data));
 
       setAccessToken(data.accessToken);
 
       // calculate absolute expiry timestamp in ms
-      const expiresAt = Date.now() + data.expiresIn * 1000;
+      const expiresAt = Date.now() + data.expiresInSeconds * 1000;
       expiresAtRef.current = expiresAt;
 
       // schedule next refresh slightly before expiration
@@ -28,7 +29,7 @@ export function useAccessToken() {
         clearTimeout(timeoutRef.current);
       }
 
-      const refreshIn = Math.max(data.expiresIn * 1000 - 5000, 0); // refresh 5s early
+      const refreshIn = Math.max(data.expiresInSeconds * 1000 - 5000, 0); // refresh 5s early
       timeoutRef.current = setTimeout(fetchToken, refreshIn);
     } catch (err) {
       console.error("Failed to fetch Spotify token", err);

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { SpotifyPlayer } from "../types/global";
 
-export function useSpotifyPlayer(accessToken: string | null, trackId: string) {
+export function useSpotifyPlayer(accessToken: string | null, trackUri: string) {
   const playerRef = useRef<SpotifyPlayer | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
 
@@ -21,7 +21,13 @@ export function useSpotifyPlayer(accessToken: string | null, trackId: string) {
         getOAuthToken: (cb) => cb(accessToken),
       });
 
-      player.addListener("ready", ({ device_id }) => setDeviceId(device_id));
+      player.addListener("ready", ({ device_id: deviceId }) => {
+        if (deviceId) {
+          setDeviceId(deviceId);
+        } else {
+          console.error("Failed to retrieve deviceId.");
+        }
+      });
       let canceled = false;
       (async () => {
         if (!(await player.connect())) {
@@ -51,8 +57,10 @@ export function useSpotifyPlayer(accessToken: string | null, trackId: string) {
 
   // start playback whenever we have player, deviceId, and trackUri
   useEffect(() => {
-    console.log(`Attempt to play ${trackId}`);
-    if (!playerRef.current || !deviceId) return;
+    console.log(`Attempt to play ${trackUri}`);
+    if (!playerRef.current || !deviceId) {
+      return;
+    }
 
     const play = async () => {
       const res = await fetch(
@@ -60,7 +68,7 @@ export function useSpotifyPlayer(accessToken: string | null, trackId: string) {
         {
           method: "PUT",
           headers: { Authorization: `Bearer ${accessToken}` },
-          body: JSON.stringify({ uris: [`spotify:track:${trackId}`] }),
+          body: JSON.stringify({ uris: [`spotify:track:${trackUri}`] }),
         },
       );
       if (res.ok) {
@@ -71,7 +79,7 @@ export function useSpotifyPlayer(accessToken: string | null, trackId: string) {
     };
 
     play();
-  }, [accessToken, deviceId, trackId]);
+  }, [accessToken, deviceId, deviceId]);
 
   return { player: playerRef.current, deviceId };
 }

@@ -31,8 +31,23 @@ interface SpotifyPlayer {
       | "account_error",
     cb: (data: any) => void,
   ): boolean;
-
+  getCurrentState(): Promise<SpotifyPlaybackState | null>;
   removeListener(event: string): boolean;
+  pause(): Promise<void>;
+  resume(): Promise<void>;
+  seek(positionMs: number): Promise<void>;
 }
 
-export type { SpotifyPlayer };
+interface SpotifyPlaybackState {
+  paused: boolean;
+  position: number;
+  duration: number;
+  track_window: {
+    current_track: {
+      uri: string;
+      name: string;
+    };
+  };
+}
+
+export type { SpotifyPlayer, SpotifyPlaybackState };

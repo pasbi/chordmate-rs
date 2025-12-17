@@ -120,7 +120,7 @@ export default function SongDetail() {
         <div>
           <button onClick={save}>Save</button>
         </div>
-        <SpotifyPlayer trackId={song.spotifyTrack} />
+        <SpotifyPlayer trackUri={`spotify:track:${song.spotifyTrack}`} />
         <div>SpotifyTrack: {song.spotifyTrack}</div>
         <button onClick={handleOpenModal}>Link Spotify Track</button>
         {modalOpen && (
