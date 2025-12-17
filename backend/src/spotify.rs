@@ -1,4 +1,5 @@
 use juniper::{graphql_value, FieldError, FieldResult};
+use log::info;
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::Value;
@@ -57,13 +58,15 @@ impl From<TokenError> for FieldError {
 
 impl SpotifyClient {
     pub fn new() -> Self {
-        SpotifyClient {
+        let client = SpotifyClient {
             token_cache: Mutex::new(None),
             client_id: env::var("SPOTIFY_CLIENT_ID").expect("SPOTIFY_CLIENT_ID is not set."),
             client_secret: env::var("SPOTIFY_CLIENT_SECRET")
                 .expect("SPOTIFY_CLIENT_ID is not set."),
             redirect_uri: env::var("SPOTIFY_REDIRECT_URI").expect("SPOTIFY_CLIENT_ID is not set."),
-        }
+        };
+        info!("Spotify: Create new client with id ${}", client.client_id);
+        client
     }
 
     pub fn client_id(&self) -> &str {
@@ -77,6 +80,7 @@ impl SpotifyClient {
     }
 
     pub async fn exchange_code_for_token(&self, code: &str) -> Result<bool, TokenError> {
+        info!("Spotify: exchange code for token");
         let params = [
             ("grant_type", "authorization_code"),
             ("code", code),
@@ -115,12 +119,19 @@ impl SpotifyClient {
             ))
         })?;
         let mut guard = self.token_cache.lock().await;
+        info!("Spotify: got access token: {}", resp.access_token);
+        info!("Spotify: got refresh token: {}", resp.refresh_token);
+        info!("Spotify: token type {}", resp.token_type);
+        let expires_at = Instant::now() + Duration::from_secs(resp.expires_in);
+        info!(
+            "Spotify: expires in {}s (at {:?}) (minus margin)",
+            resp.expires_in, expires_at
+        );
         *guard = Some(StoredToken {
             token_type: resp.token_type,
             access_token: resp.access_token,
             refresh_token: resp.refresh_token,
-            expires_at: Instant::now() + Duration::from_secs(resp.expires_in)
-                - Duration::from_secs(60),
+            expires_at: expires_at - Duration::from_secs(60),
             scope: resp.scope,
         });
 
@@ -128,6 +139,7 @@ impl SpotifyClient {
     }
 
     async fn refresh_access_token(&self) -> Result<String, TokenError> {
+        info!("Spotify: refresh access token");
         let refresh_token = self.get_refresh_token().await?;
         let params = [
             ("grant_type", "refresh_token"),
@@ -146,6 +158,7 @@ impl SpotifyClient {
             .await
             .map_err(|e| TokenError::FailedToGet(e.to_string()))?;
 
+        info!("Spotify: refreshed access token: {}", resp.access_token);
         Ok(resp.access_token)
     }
 
@@ -154,7 +167,13 @@ impl SpotifyClient {
             let guard = self.token_cache.lock().await;
             if let Some(token) = &*guard {
                 if token.expires_at > Instant::now() {
+                    info!(
+                        "Spotify: returning cached access_token: {}",
+                        token.access_token
+                    );
                     return Ok(token.access_token.clone());
+                } else {
+                    info!("Spotify: cached is expired. Refreshing ...");
                 }
             }
         }
@@ -162,6 +181,7 @@ impl SpotifyClient {
         if let Some(guard) = guard.as_mut() {
             guard.access_token = self.refresh_access_token().await?;
         }
+        info!("Spotify: returning refreshed access_token ...");
         guard
             .as_ref()
             .filter(|token| token.expires_at > Instant::now())
@@ -178,6 +198,7 @@ impl SpotifyClient {
     }
 
     pub async fn search_tracks(&self, query: &str) -> FieldResult<Value> {
+        info!("Spotify: search tracks '{}'", query);
         let token = self.access_token().await?;
         let client = Client::new();
         let res = client

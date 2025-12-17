@@ -14,7 +14,9 @@ use dotenvy::dotenv;
 use juniper::{EmptySubscription, RootNode};
 use juniper_axum::{graphiql, graphql, playground, ws};
 use juniper_graphql_ws::ConnectionConfig;
+use log::info;
 use serde::Deserialize;
+use simple_logger::SimpleLogger;
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::net::TcpListener;
@@ -134,6 +136,7 @@ async fn serve(database_connection_pool: Pool) {
 
     println!("listening on http://{}", listener.local_addr().unwrap());
     let spotify_client = Arc::new(SpotifyClient::new());
+
     axum::serve(
         listener,
         router(
@@ -157,11 +160,13 @@ async fn serve(database_connection_pool: Pool) {
 
 #[tokio::main]
 async fn main() {
+    SimpleLogger::new().init().unwrap();
     dotenv().ok();
     let database_connection_pool = chordmate::database_connection::new_pool();
     let server_handle = tokio::spawn(async move {
         serve(database_connection_pool).await;
     });
 
+    info!("waiting for requests ...");
     server_handle.await.unwrap();
 }
