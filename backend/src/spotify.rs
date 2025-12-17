@@ -158,8 +158,10 @@ impl SpotifyClient {
                 }
             }
         }
-        self.refresh_access_token().await?;
-        let guard = self.token_cache.lock().await;
+        let mut guard = self.token_cache.lock().await;
+        if let Some(guard) = guard.as_mut() {
+            guard.access_token = self.refresh_access_token().await?;
+        }
         guard
             .as_ref()
             .filter(|token| token.expires_at > Instant::now())
