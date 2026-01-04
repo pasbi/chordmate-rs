@@ -3,19 +3,11 @@ import { Link } from "react-router-dom";
 import { useMutation, useQuery } from "@apollo/client/react";
 import GetSongsData from "../types/GetSongsData";
 import { gql } from "@apollo/client";
+import { GET_SONGS } from "../graphql";
 
 const DELETE_SONG = gql`
   mutation DeleteSong($id: Int!) {
     deleteSong(id: $id)
-  }
-`;
-const GET_SONGS = gql`
-  query GetSongs {
-    songs {
-      id
-      title
-      artist
-    }
   }
 `;
 

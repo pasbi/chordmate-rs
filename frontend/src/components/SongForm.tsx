@@ -1,56 +1,39 @@
-import React, { useRef } from "react";
 import { useMutation } from "@apollo/client/react";
 import { gql } from "@apollo/client";
-import Song from "../types/Song";
-
-const GET_SONGS = gql`
-  query GetSongs {
-    songs {
-      id
-      title
-      artist
-    }
-  }
-`;
+import { useNavigate } from "react-router-dom";
+import { GET_SONGS } from "../graphql";
 
 const ADD_SONG = gql`
-  mutation AddSong($title: String!, $artist: String!) {
-    addSong(title: $title, artist: $artist) {
-      id
-      title
-      artist
-    }
+  mutation AddSong {
+    addSong
   }
 `;
 
 interface AddSongData {
-  addSong: Song;
+  addSong: number;
 }
 
-interface AddSongVars {
-  title: string;
-  artist: string;
-}
+interface AddSongVars {}
 
 export default function SongForm() {
-  const titleInput = useRef<HTMLInputElement>(null);
-  const artistInput = useRef<HTMLInputElement>(null);
-
-  const [addSong] = useMutation<AddSongData, AddSongVars>(ADD_SONG);
-  const handleSubmit = async () => {
-    const title = titleInput.current!.value;
-    const artist = artistInput.current!.value;
-    await addSong({
-      variables: { title, artist },
-      refetchQueries: [{ query: GET_SONGS, variables: {} }],
-    });
-  };
+  const [addSong] = useMutation<AddSongData, AddSongVars>(ADD_SONG, {
+    onCompleted: (data) => {
+      const newId = data.addSong;
+      navigate(`/songs/${newId}`);
+    },
+    refetchQueries: [{ query: GET_SONGS }],
+  });
+  const navigate = useNavigate();
 
   return (
     <div>
-      <input ref={titleInput} type="text" placeholder="Title" />
-      <input ref={artistInput} type="text" placeholder="Artist" />
-      <button onClick={handleSubmit}>Add Song</button>
+      <button
+        onClick={() => {
+          addSong();
+        }}
+      >
+        Add Song
+      </button>
     </div>
   );
 }

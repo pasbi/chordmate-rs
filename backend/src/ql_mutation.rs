@@ -9,29 +9,22 @@ pub struct QLMutation {
 
 #[graphql_object]
 impl QLMutation {
-    async fn add_song(&self, title: String, artist: String) -> FieldResult<Song> {
+    async fn add_song(&self) -> FieldResult<i32> {
         let client = self.database_connection.get().await?;
         let statement = client
             .prepare(
-                "INSERT INTO songs (title, artist, content, spotify_track) VALUES ($1, $2, '', '') RETURNING *"
+                "INSERT INTO songs (title, artist, content, spotify_track) VALUES ('', '', '', '') RETURNING id"
             )
             .await
             .expect("SQL query preparation failed.");
 
         let row = client
-            .query_one(&statement, &[&title, &artist])
+            .query_one(&statement, &[])
             .await
             .expect("SQL query failed");
 
-        println!(
-            "Inserted song with title: {}, '{}'",
-            row.get::<_, String>("title"),
-            row.get::<_, String>("spotify_track")
-        );
-
-        let song = Song::from_row(&row)?;
-        dbg!(&song);
-        Ok(song)
+        let id: i32 = row.try_get("id")?;
+        Ok(id)
     }
 
     async fn delete_song(&self, id: i32) -> FieldResult<bool> {
