@@ -160,6 +160,14 @@ export default function SpotifyPlayer({ trackId }: { trackId: string }) {
 
   const trackInfo = useTrackInfo(trackId, accessToken);
 
+  function seek(delta: Seconds) {
+    player?.seek(position + delta * 1000);
+  }
+
+  function seekStart() {
+    player?.seek(0);
+  }
+
   return (
     <div className={styles.player}>
       <img
@@ -185,29 +193,29 @@ export default function SpotifyPlayer({ trackId }: { trackId: string }) {
           </span>
         </div>
         <div className={styles.buttonsRow}>
-          <button className={styles.btn} onClick={togglePlay}>
+          <button className={styles.btn} onClick={seekStart}>
             ⇤
           </button>
-          <button className={styles.btn} onClick={togglePlay}>
+          <button className={styles.btn} onClick={() => seek(-10 as Seconds)}>
             -10s
           </button>
-          <button className={styles.btn} onClick={togglePlay}>
+          <button className={styles.btn} onClick={() => seek(-1 as Seconds)}>
             -1s
           </button>
           <button className={styles.btn} onClick={togglePlay}>
             {" "}
             {paused ? "Play" : "Pause"}{" "}
           </button>
-          <button className={styles.btn} onClick={togglePlay}>
+          <button className={styles.btn} onClick={() => seek(1 as Seconds)}>
             +1s
           </button>
-          <button className={styles.btn} onClick={togglePlay}>
+          <button className={styles.btn} onClick={() => seek(10 as Seconds)}>
             +10s
           </button>
         </div>
-        <a href="">
+        <span>
           {trackInfo?.title ?? ""} — {trackInfo?.artists?.join(", ") ?? ""}
-        </a>
+        </span>
       </div>
     </div>
   );
