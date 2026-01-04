@@ -1,3 +1,4 @@
+use crate::spotify::TokenError::Missing;
 use juniper::{graphql_value, FieldError, FieldResult};
 use log::info;
 use reqwest::Client;
@@ -160,7 +161,6 @@ impl SpotifyClient {
             .await
             .map_err(|e| TokenError::FailedToGet(e.to_string()))?;
 
-        info!("Spotify: refreshed access token: {}", resp.access_token);
         Ok(resp.access_token)
     }
 
@@ -175,26 +175,22 @@ impl SpotifyClient {
                     info!("Access token is expired.");
                 }
             } else {
-                info!("Access token not available.");
+                return Err(Missing);
             }
         }
-        let mut guard = self.token_cache.lock().await;
-        if let Some(guard) = guard.as_mut() {
-            info!("Refreshing access token ...");
-            guard.access_token = self.refresh_access_token().await.map_err(|err| {
-                info!("Refreshing access token failed, {:?}", err);
-                err
-            })?;
-        } else {
-            info!("Token cache not available.");
-            return Err(TokenError::Missing);
-        }
-        info!("Spotify: returning refreshed access_token ...");
-        guard
-            .as_ref()
-            .filter(|token| token.expires_at > Instant::now())
-            .map(|token| token.access_token.clone())
-            .ok_or(TokenError::Missing)
+        let access_token = self.refresh_access_token().await.map_err(|err| {
+            info!("Refreshing access token failed, {:?}", err);
+            err
+        })?;
+
+        self.token_cache
+            .lock()
+            .await
+            .as_mut()
+            .expect("Token cache not available")
+            .access_token = access_token.clone();
+        info!("returning refreshed access_token ...");
+        Ok(access_token)
     }
 
     async fn get_refresh_token(&self) -> Result<String, TokenError> {
