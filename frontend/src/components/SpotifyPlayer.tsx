@@ -2,10 +2,77 @@ import { useAccessToken } from "../hooks/useAccessToken";
 import { useSpotifyPlayer } from "../hooks/useSpotifyPlayer";
 import { useEffect, useRef, useState } from "react";
 import { SpotifyPlaybackState } from "../types/global";
+import styles from "./SpotifyPlayer.module.css";
 
-export default function SpotifyPlayer({ trackUri }: { trackUri: string }) {
+type Milliseconds = number & { readonly __unit: "ms" };
+type Seconds = number & { readonly __unit: "s" };
+
+function formatTime(duration: Milliseconds): string {
+  const totalSeconds = (duration / 1000) as Seconds;
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = Math.floor(totalSeconds % 60);
+
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+export interface TrackInfo {
+  title: string;
+  artists: string[];
+  albumArtUrl: string | null;
+}
+
+function useTrackInfo(trackId: string, accessToken: string | null) {
+  const [trackInfo, setTrackInfo] = useState<TrackInfo | null>(null);
+
+  useEffect(() => {
+    if (!accessToken) {
+      setTrackInfo(null);
+      return;
+    }
+
+    let cancelled = false;
+    async function fetchTrackInfo() {
+      const res = await fetch(`https://api.spotify.com/v1/tracks/${trackId}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) {
+        if (!cancelled) {
+          setTrackInfo(null);
+        }
+        console.error("Failed to fetch track info.");
+        return;
+      }
+      const data = await res.json();
+      console.log("Track info", JSON.stringify(data, null, 2));
+      if (!cancelled) {
+        const images = data.album?.images;
+        setTrackInfo({
+          title: data.name,
+          artists: data.artists.map((artist: any) => artist.name),
+          albumArtUrl: data.album.images?.[0]?.url ?? null,
+        });
+      }
+    }
+
+    void fetchTrackInfo();
+    return () => {
+      cancelled = true;
+    };
+  }, [trackId, accessToken]);
+
+  return trackInfo;
+}
+
+function trackIdToUri(trackId: string) {
+  return `spotify:track/${trackId}`;
+}
+
+export default function SpotifyPlayer({ trackId }: { trackId: string }) {
   const accessToken = useAccessToken();
-  const { player, deviceId } = useSpotifyPlayer(accessToken, trackUri);
+  const { player, deviceId } = useSpotifyPlayer(
+    accessToken,
+    trackIdToUri(trackId),
+  );
   const [paused, setPaused] = useState(true);
   const [position, setPosition] = useState(0); // in ms
   const [duration, setDuration] = useState(0); // in ms
@@ -67,7 +134,10 @@ export default function SpotifyPlayer({ trackUri }: { trackUri: string }) {
           `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
           {
             method: "PUT",
-            body: JSON.stringify({ uris: [trackUri], position_ms: position }),
+            body: JSON.stringify({
+              uris: [trackIdToUri(trackId)],
+              position_ms: position,
+            }),
             headers: {
               Authorization: `Bearer ${accessToken}`,
               "Content-Type": "application/json",
@@ -88,21 +158,57 @@ export default function SpotifyPlayer({ trackUri }: { trackUri: string }) {
     }
   };
 
+  const trackInfo = useTrackInfo(trackId, accessToken);
+
   return (
-    <div>
-      <p>Player ready: {player ? "Yes" : "No"}</p>
-      <p>Device ID: {deviceId ?? "Waiting..."}</p>
-      <button onClick={togglePlay}>{paused ? "Play" : "Pause"}</button>
-      <input
-        type="range"
-        min={0}
-        max={duration}
-        value={position}
-        onChange={(e) => handleSeek(Number(e.target.value))}
+    <div className={styles.player}>
+      <img
+        className={styles.albumArt}
+        src={trackInfo?.albumArtUrl ?? ""}
+        alt="Album Art"
       />
-      <span>
-        {Math.floor(position / 1000)} / {Math.floor(duration / 1000)} sec
-      </span>
+      <div className={styles.wrapper}>
+        <div className={styles.sliderRow}>
+          <span className={styles.currentTime}>
+            {formatTime(position as Milliseconds)}
+          </span>
+          <input
+            className={styles.seeker}
+            type="range"
+            min={0}
+            max={duration}
+            value={position}
+            onChange={(e) => handleSeek(Number(e.target.value))}
+          />
+          <span className={styles.duration}>
+            {formatTime(duration as Milliseconds)}
+          </span>
+        </div>
+        <div className={styles.buttonsRow}>
+          <button className={styles.btn} onClick={togglePlay}>
+            ⇤
+          </button>
+          <button className={styles.btn} onClick={togglePlay}>
+            -10s
+          </button>
+          <button className={styles.btn} onClick={togglePlay}>
+            -1s
+          </button>
+          <button className={styles.btn} onClick={togglePlay}>
+            {" "}
+            {paused ? "Play" : "Pause"}{" "}
+          </button>
+          <button className={styles.btn} onClick={togglePlay}>
+            +1s
+          </button>
+          <button className={styles.btn} onClick={togglePlay}>
+            +10s
+          </button>
+        </div>
+        <a href="">
+          {trackInfo?.title ?? ""} — {trackInfo?.artists?.join(", ") ?? ""}
+        </a>
+      </div>
     </div>
   );
 }

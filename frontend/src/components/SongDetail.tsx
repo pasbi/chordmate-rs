@@ -1,10 +1,9 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { useParams } from "react-router-dom";
 import { gql } from "@apollo/client";
 import { useMutation, useQuery } from "@apollo/client/react";
 import GetSongData from "types/GetSongData";
-import { Link } from "react-router-dom";
-import "./SongDetail.css";
+import styles from "./SongDetail.module.css";
 import Editor from "components/Editor";
 import SpotifyTrack from "types/SpotifyTrack";
 import SpotifySearchModal from "./SpotifySearchModal";
@@ -103,33 +102,37 @@ export default function SongDetail() {
   const handleOpenModal = () => setModalOpen(true);
   const handleCloseModal = () => setModalOpen(false);
 
-  const handleTrackSelected = (track: SpotifyTrack) => {
+  const handleTrackSelected = async (track: SpotifyTrack) => {
     console.log(`Selected: ${JSON.stringify(track)}`);
-    updateSongTrack({ variables: { id: song.id, track: track.id } });
+    await updateSongTrack({
+      variables: { id: song.id, track: track.id },
+      refetchQueries: [{ query: GET_SONG, variables: { id } }],
+    });
+    console.log(`Update track!`);
     handleCloseModal();
   };
 
   return (
-    <div className="song-detail-container">
+    <div className={styles.songDetailContainer}>
       <header>
-        <h1>{song.title}</h1>
-        <div>Artist: {song.artist}</div>
-        <div>
-          <Link to={"/"}>Back </Link>
+        <hgroup>
+          <h1>{song.title}</h1>
+          <p>{song.artist}</p>
+        </hgroup>
+        <SpotifyPlayer trackId={song.spotifyTrack} />
+        <div className={styles.tools}>
+          <button onClick={handleOpenModal}>Link Spotify Track</button>
+          {modalOpen && (
+            <SpotifySearchModal
+              initialQuery={`${song.title} ${song.artist}`}
+              onSelect={handleTrackSelected}
+              onClose={handleCloseModal}
+            />
+          )}
+          <div>
+            <button onClick={save}>Save</button>
+          </div>
         </div>
-        <div>
-          <button onClick={save}>Save</button>
-        </div>
-        <SpotifyPlayer trackUri={`spotify:track:${song.spotifyTrack}`} />
-        <div>SpotifyTrack: {song.spotifyTrack}</div>
-        <button onClick={handleOpenModal}>Link Spotify Track</button>
-        {modalOpen && (
-          <SpotifySearchModal
-            initialQuery={`${song.title} ${song.artist}`}
-            onSelect={handleTrackSelected}
-            onClose={handleCloseModal}
-          />
-        )}
       </header>
       <Editor content={song.content} onUpdate={setEditorContent} />
     </div>

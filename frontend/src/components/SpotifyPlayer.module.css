@@ -1,0 +1,61 @@
+.btn {
+    border: 1px solid color-mix(in srgb, var(--text-color) 20%, transparent);
+    border-radius: 2px;
+    padding: 0.6em 1.2em;
+
+    background-color: color-mix(
+            in srgb,
+            var(--background-color) 85%,
+            var(--text-color)
+    );
+
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+/* Hover */
+.btn:hover {
+    background-color: color-mix(
+            in srgb,
+            var(--background-color) 70%,
+            var(--text-color)
+    );
+}
+
+
+.player {
+    display: flex;
+    align-items: stretch; /* This ensures albumArt and wrapper are the same height */
+    gap: 20px; /* Optional spacing between art and controls */
+    height: 200px;
+}
+
+.albumArt {
+    height: 100%;
+    object-fit: contain;
+    min-width: 0;
+    flex-shrink: 1;
+}
+
+.wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: .5em;
+}
+
+.sliderRow,
+.buttonsRow {
+    display: flex;
+    gap: 10px;
+}
+
+.currentTime,
+.duration {
+    flex-shrink: 0; /* labels stay fixed width */
+    width: 40px;
+    text-align: center;
+}
+
+.seeker {
+    flex: 1; /* fills remaining space between labels */
+}
