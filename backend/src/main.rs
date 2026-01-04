@@ -1,9 +1,8 @@
 use axum::body::{Body, Bytes};
 use axum::extract::Query;
 use axum::http::{Request, StatusCode};
-use axum::middleware::from_fn;
-use axum::response::{IntoResponse, Redirect};
-use axum::routing::{post, MethodFilter};
+use axum::response::Redirect;
+use axum::routing::MethodFilter;
 use axum::{body, response::Html, routing::get, Extension, Json, Router};
 use chordmate::database_connection::DatabaseConnection;
 use chordmate::ql_mutation::QLMutation;
@@ -15,7 +14,6 @@ use juniper::{EmptySubscription, RootNode};
 use juniper_axum::{graphiql, graphql, playground, ws};
 use juniper_graphql_ws::ConnectionConfig;
 use log::info;
-use serde::Deserialize;
 use simple_logger::SimpleLogger;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -50,10 +48,6 @@ async fn log_requests(
     next.run(req).await
 }
 
-#[derive(Deserialize)]
-struct SpotifyCode {
-    code: String,
-}
 async fn spotify_callback(
     query: Query<HashMap<String, String>>,
     Extension(spotify_client): Extension<Arc<SpotifyClient>>,

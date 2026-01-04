@@ -36,6 +36,7 @@ struct TokenErrorResponse {
     error_description: String,
 }
 
+#[derive(Debug)]
 pub enum TokenError {
     Missing,
     FailedToGet(String),
@@ -119,12 +120,12 @@ impl SpotifyClient {
             ))
         })?;
         let mut guard = self.token_cache.lock().await;
-        info!("Spotify: got access token: {}", resp.access_token);
-        info!("Spotify: got refresh token: {}", resp.refresh_token);
-        info!("Spotify: token type {}", resp.token_type);
+        info!("got access token: {}", resp.access_token);
+        info!("got refresh token: {}", resp.refresh_token);
+        info!("token type {}", resp.token_type);
         let expires_at = Instant::now() + Duration::from_secs(resp.expires_in);
         info!(
-            "Spotify: expires in {}s (at {:?}) (minus margin)",
+            "expires in {}s (at {:?}) (minus margin)",
             resp.expires_in, expires_at
         );
         *guard = Some(StoredToken {
@@ -139,7 +140,7 @@ impl SpotifyClient {
     }
 
     async fn refresh_access_token(&self) -> Result<String, TokenError> {
-        info!("Spotify: refresh access token");
+        info!("refresh access token");
         let refresh_token = self.get_refresh_token().await?;
         let params = [
             ("grant_type", "refresh_token"),
@@ -148,6 +149,7 @@ impl SpotifyClient {
             ("client_secret", self.client_secret()),
         ];
 
+        info!("refresh access token2");
         let resp = Client::new()
             .post("https://accounts.spotify.com/api/token")
             .form(&params)
@@ -179,7 +181,10 @@ impl SpotifyClient {
         let mut guard = self.token_cache.lock().await;
         if let Some(guard) = guard.as_mut() {
             info!("Refreshing access token ...");
-            guard.access_token = self.refresh_access_token().await?;
+            guard.access_token = self.refresh_access_token().await.map_err(|err| {
+                info!("Refreshing access token failed, {:?}", err);
+                err
+            })?;
         } else {
             info!("Token cache not available.");
             return Err(TokenError::Missing);
