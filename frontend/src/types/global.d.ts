@@ -36,6 +36,7 @@ interface SpotifyPlayer {
   pause(): Promise<void>;
   resume(): Promise<void>;
   seek(positionMs: number): Promise<void>;
+  setVolume(volume: number): Promise<void>;
 }
 
 interface SpotifyPlaybackState {

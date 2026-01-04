@@ -47,15 +47,31 @@
 .buttonsRow {
     display: flex;
     gap: 10px;
+    overflow: visible;
 }
 
 .currentTime,
 .duration {
-    flex-shrink: 0; /* labels stay fixed width */
+    flex-shrink: 0;
     width: 40px;
     text-align: center;
 }
 
 .seeker {
-    flex: 1; /* fills remaining space between labels */
+    flex: 1;
+}
+
+.volumeContainer {
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 1000;
+    background-color: color-mix(in srgb, var(--text-color) 5%, transparent);
+    color: var(--text-color);
+    border-radius: 6px;
+    padding: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 5px;
 }

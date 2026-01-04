@@ -33,10 +33,10 @@ export default function SpotifyPlayer({ trackId }: { trackId: string }) {
     trackIdToUri(trackId),
   );
   const [paused, setPaused] = useState(true);
-  const [position, setPosition] = useState(0); // in ms
   const [duration, setDuration] = useState(0); // in ms
-  const seekTimeout = useRef<NodeJS.Timeout | null>(null);
 
+  const [position, setPosition] = useState(0); // in ms
+  const seekTimeout = useRef<NodeJS.Timeout | null>(null);
   const handleSeek = (newPosition: number) => {
     setPosition(newPosition);
     if (seekTimeout.current) {
@@ -47,6 +47,25 @@ export default function SpotifyPlayer({ trackId }: { trackId: string }) {
       player.seek(newPosition).catch(console.error);
     }, 300);
   };
+
+  const [volume, setVolume] = useState(50); // in %
+  const volumeTimeout = useRef<NodeJS.Timeout | null>(null);
+  const [showVolumeSlider, setShowVolumeSlider] = useState<boolean>(false);
+  const setVolumePlayer = (newVolume: number) => {
+    setVolume(newVolume);
+    if (volumeTimeout.current) {
+      clearTimeout(volumeTimeout.current);
+    }
+    volumeTimeout.current = setTimeout(() => {
+      if (!player) return;
+      const v = newVolume / 100;
+      const k = 2;
+      const vv = (Math.exp(k * v) - 1) / (Math.exp(k) - 1);
+
+      player.setVolume(vv).catch(console.error);
+    }, 300);
+  };
+
   useEffect(() => {
     if (!player) return;
 
@@ -127,6 +146,27 @@ export default function SpotifyPlayer({ trackId }: { trackId: string }) {
     player?.seek(0);
   }
 
+  const volumeContainerRef = useRef<HTMLDivElement | null>(null);
+  const volumeButtonRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!(event.target instanceof Node)) {
+        return;
+      }
+      const target =
+        event.target instanceof Node ? (event.target as Node) : null;
+      if (
+        !volumeContainerRef?.current?.contains(target) &&
+        !volumeButtonRef?.current?.contains(target)
+      ) {
+        setShowVolumeSlider(false);
+      }
+    };
+
+    document.addEventListener("click", handleClickOutside);
+    return () => document.removeEventListener("click", handleClickOutside);
+  }, []);
+
   return (
     <div className={styles.player}>
       <img
@@ -171,11 +211,35 @@ export default function SpotifyPlayer({ trackId }: { trackId: string }) {
           <button className={styles.btn} onClick={() => seek(10 as Seconds)}>
             +10s
           </button>
+          <button
+            className={styles.volumeButton}
+            ref={volumeButtonRef}
+            onClick={() => {
+              setShowVolumeSlider(!showVolumeSlider);
+            }}
+          >
+            Volume
+          </button>
         </div>
         <span>
           {trackInfo?.title ?? ""} — {trackInfo?.artists?.join(", ") ?? ""}
         </span>
       </div>
+      {showVolumeSlider && (
+        <div ref={volumeContainerRef} className={styles.volumeContainer}>
+          <input
+            type="range"
+            id="volumeSlider"
+            min="0"
+            max="100"
+            value={volume}
+            onChange={(e) => {
+              setVolumePlayer(Number(e.target.value));
+            }}
+          />
+          <span id="volumeLabel">{volume}%</span>
+        </div>
+      )}
     </div>
   );
 }
