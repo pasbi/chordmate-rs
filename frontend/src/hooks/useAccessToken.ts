@@ -20,8 +20,9 @@ export function useAccessToken() {
       console.log(JSON.stringify(data));
       if (data.accessToken === null) {
         console.log("No Access token. Start OAuth flow...");
-        await startSpotifyOauthFlow(window.location.origin);
+        await startSpotifyOauthFlow(window.location.href);
         console.log("Finished OAuth flow.");
+        return;
       }
 
       setAccessToken(data.accessToken);
