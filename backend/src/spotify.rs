@@ -167,19 +167,22 @@ impl SpotifyClient {
             let guard = self.token_cache.lock().await;
             if let Some(token) = &*guard {
                 if token.expires_at > Instant::now() {
-                    info!(
-                        "Spotify: returning cached access_token: {}",
-                        token.access_token
-                    );
+                    info!("returning cached access_token: {}", token.access_token);
                     return Ok(token.access_token.clone());
                 } else {
-                    info!("Spotify: cached is expired. Refreshing ...");
+                    info!("Access token is expired.");
                 }
+            } else {
+                info!("Access token not available.");
             }
         }
         let mut guard = self.token_cache.lock().await;
         if let Some(guard) = guard.as_mut() {
+            info!("Refreshing access token ...");
             guard.access_token = self.refresh_access_token().await?;
+        } else {
+            info!("Token cache not available.");
+            return Err(TokenError::Missing);
         }
         info!("Spotify: returning refreshed access_token ...");
         guard

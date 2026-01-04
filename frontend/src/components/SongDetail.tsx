@@ -74,7 +74,7 @@ export default function SongDetail() {
     if (data?.song) {
       setEditorContent(data.song.content);
     }
-  }, [data?.song?.content]);
+  }, [data?.song, data?.song?.content]);
 
   if (loading) return <p>Loading...</p>;
   if (error) return <p>Error: {error.message}</p>;

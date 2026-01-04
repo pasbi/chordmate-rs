@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import startSpotifyOauthFlow from "../spotifyoauth";
 
 interface TokenResponse {
   accessToken: string;
@@ -17,6 +18,11 @@ export function useAccessToken() {
       );
       const data: TokenResponse = await res.json();
       console.log(JSON.stringify(data));
+      if (data.accessToken === null) {
+        console.log("No Access token. Start OAuth flow...");
+        await startSpotifyOauthFlow(window.location.origin);
+        console.log("Finished OAuth flow.");
+      }
 
       setAccessToken(data.accessToken);
 

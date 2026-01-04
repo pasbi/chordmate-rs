@@ -4,8 +4,9 @@ import { useLazyQuery } from "@apollo/client/react";
 import SpotifyTrack from "../types/SpotifyTrack";
 import { useDebounce } from "../hooks/useDebounce";
 import styles from "./SpotifySearchModal.module.css";
-import { GraphQLError } from "graphql/error";
 import { useLocation } from "react-router-dom";
+import { GraphQLError } from "graphql/error";
+import startSpotifyOauthFlow from "../spotifyoauth";
 
 export const SPOTIFY_SEARCH_TRACKS = gql`
   query SearchSpotifyTracks($query: String!) {
@@ -33,23 +34,7 @@ interface SpotifySearchModalProps {
   onClose: () => void;
 }
 
-async function startSpotifyOauthFlow(currentPath: string) {
-  const spotifyApi = await fetch(
-    `http://${window.location.hostname}:3000/spotify`,
-  ).then((res) => res.json());
-
-  console.log(JSON.stringify(spotifyApi));
-
-  const scope = encodeURIComponent(
-    "streaming user-read-private user-read-email user-modify-playback-state user-read-playback-state",
-  );
-
-  const state = encodeURIComponent(currentPath);
-  const authUrl = `https://accounts.spotify.com/authorize?client_id=${spotifyApi.clientId}&response_type=code&redirect_uri=${spotifyApi.redirectUri}&scope=${scope}&state=${state}`;
-  window.location.href = authUrl;
-}
-
-async function handleError(error: unknown, currentPath: string) {
+export async function handleError(error: unknown, currentPath: string) {
   if (!error || typeof error !== "object" || !("errors" in error)) {
     return;
   }
@@ -84,11 +69,11 @@ export default function SpotifySearchModal({
       return;
     }
     search({ variables: { query: debouncedQuery } });
-  }, [debouncedQuery, initialQuery]);
+  }, [debouncedQuery, initialQuery, search]);
 
   useEffect(() => {
     handleError(error, currentPath).catch(console.error);
-  }, [error]);
+  }, [currentPath, error]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     setQuery(e.target.value);

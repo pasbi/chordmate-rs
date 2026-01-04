@@ -88,7 +88,6 @@ export default function SpotifyPlayer({ trackUri }: { trackUri: string }) {
     }
   };
 
-  // TODO the initial refreshToken can only be acquired via track search currently.
   return (
     <div>
       <p>Player ready: {player ? "Yes" : "No"}</p>
