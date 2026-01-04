@@ -1,6 +1,7 @@
 use crate::database_connection::DatabaseConnection;
 use crate::song::Song;
 use juniper::{graphql_object, FieldResult};
+use log::info;
 
 pub struct QLMutation {
     pub database_connection: DatabaseConnection,
@@ -36,11 +37,11 @@ impl QLMutation {
     async fn delete_song(&self, id: i32) -> FieldResult<bool> {
         let client = self.database_connection.get().await?;
         let statement = client
-            .prepare("DELETE FROM songs WHERE id = $1 RETURNING id;")
+            .prepare("DELETE FROM songs WHERE id = $1;")
             .await
             .expect("SQL query preparation failed.");
-        let row = client.query_one(&statement, &[&id]).await?;
-        Ok(row.try_get("id")?)
+        client.execute(&statement, &[&id]).await?;
+        Ok(true)
     }
 
     async fn update_song_content(&self, id: i32, content: String) -> FieldResult<i32> {

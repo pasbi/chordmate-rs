@@ -100,6 +100,7 @@ export default function SpotifyPlayer({ trackId }: { trackId: string }) {
 
     return () => clearInterval(interval);
   }, [player]);
+
   const togglePlay = async () => {
     if (!deviceId || !accessToken) {
       console.log("no play");
