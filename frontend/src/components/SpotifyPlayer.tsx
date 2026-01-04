@@ -19,7 +19,7 @@ export default function SpotifyPlayer({ trackUri }: { trackUri: string }) {
     seekTimeout.current = setTimeout(() => {
       if (!player) return;
       player.seek(newPosition).catch(console.error);
-    }, 300); // adjust delay as needed
+    }, 300);
   };
   useEffect(() => {
     if (!player) return;
@@ -67,7 +67,7 @@ export default function SpotifyPlayer({ trackUri }: { trackUri: string }) {
           `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
           {
             method: "PUT",
-            body: JSON.stringify({ uris: [trackUri] }),
+            body: JSON.stringify({ uris: [trackUri], position_ms: position }),
             headers: {
               Authorization: `Bearer ${accessToken}`,
               "Content-Type": "application/json",
