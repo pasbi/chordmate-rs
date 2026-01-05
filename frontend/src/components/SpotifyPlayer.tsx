@@ -172,7 +172,7 @@ export default function SpotifyPlayer({ trackId }: { trackId: string }) {
     <div className={styles.player}>
       <img
         className={styles.albumArt}
-        src={trackInfo?.albumArtUrl ?? ""}
+        src={trackInfo?.albumArtUrl ?? undefined}
         alt="Album Art"
       />
       <div className={styles.wrapper}>
