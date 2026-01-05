@@ -19,7 +19,7 @@ export default function SongForm() {
   const [addSong] = useMutation<AddSongData, AddSongVars>(ADD_SONG, {
     onCompleted: (data) => {
       const newId = data.addSong;
-      navigate(`/songs/${newId}`);
+      navigate(`/songs/${newId}?init=true`);
     },
     refetchQueries: [{ query: GET_SONGS }],
   });

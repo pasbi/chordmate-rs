@@ -26,7 +26,6 @@ export default function useTrackInfo(
         return;
       }
       const data = await res.json();
-      console.log("Track info", JSON.stringify(data, null, 2));
       if (!cancelled) {
         const images = data.album?.images;
         setTrackInfo({
