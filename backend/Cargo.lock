@@ -186,7 +186,6 @@ dependencies = [
  "tokio",
  "tokio-postgres",
  "tower-http",
- "tracing",
 ]
 
 [[package]]

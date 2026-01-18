@@ -1,7 +1,5 @@
 use crate::database_connection::DatabaseConnection;
-use crate::song::Song;
 use juniper::{graphql_object, FieldResult};
-use log::info;
 
 pub struct QLMutation {
     pub database_connection: DatabaseConnection,

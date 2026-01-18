@@ -29,10 +29,6 @@ async fn homepage() -> Html<&'static str> {
     </html>"
         .into()
 }
-async fn spa_index() -> Html<&'static str> {
-    Html(include_str!("../../frontend/build/index.html"))
-}
-
 #[allow(unused)]
 async fn log_requests(
     mut req: Request<Body>,
@@ -116,7 +112,6 @@ fn router(query: QLQuery, mutation: QLMutation, spotify_client: Arc<SpotifyClien
             }),
         )
         .route("/", get(homepage))
-        .fallback(spa_index)
         .layer(cors)
         .layer(Extension(Arc::new(schema)))
         .layer(Extension(spotify_client.clone()))
