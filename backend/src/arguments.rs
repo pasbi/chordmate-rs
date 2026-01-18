@@ -1,5 +1,5 @@
 use clap::Parser;
-use log::info;
+use log::{info, LevelFilter};
 
 #[derive(Parser, Debug)]
 #[command(rename_all = "kebab-case")]
@@ -54,4 +54,7 @@ pub struct ChordmateArgs {
         help = "The port where this service will become available."
     )]
     pub port: u16,
+
+    #[arg(long, value_enum, default_value = "info")]
+    pub log_level: LevelFilter,
 }

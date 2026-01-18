@@ -151,9 +151,11 @@ async fn serve(database_connection_pool: Pool, port: u16) {
 
 #[tokio::main]
 async fn main() {
-    SimpleLogger::new().init().unwrap();
-
     let args = ChordmateArgs::parse();
+    SimpleLogger::new()
+        .with_level(args.log_level)
+        .init()
+        .unwrap();
 
     dotenv().ok();
     let database_connection_pool = chordmate::database_connection::new_pool(args.db);
