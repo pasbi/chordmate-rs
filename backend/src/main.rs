@@ -4,10 +4,12 @@ use axum::http::{Request, StatusCode};
 use axum::response::Redirect;
 use axum::routing::MethodFilter;
 use axum::{body, response::Html, routing::get, Extension, Json, Router};
+use chordmate::arguments::ChordmateArgs;
 use chordmate::database_connection::DatabaseConnection;
 use chordmate::ql_mutation::QLMutation;
 use chordmate::ql_query::QLQuery;
 use chordmate::spotify::{SpotifyClient, TokenError};
+use clap::Parser;
 use deadpool_postgres::Pool;
 use dotenvy::dotenv;
 use juniper::{EmptySubscription, RootNode};
@@ -118,8 +120,8 @@ fn router(query: QLQuery, mutation: QLMutation, spotify_client: Arc<SpotifyClien
     // .layer(from_fn(log_requests))
 }
 
-async fn serve(database_connection_pool: Pool) {
-    let listener = TcpListener::bind("0.0.0.0:3000")
+async fn serve(database_connection_pool: Pool, port: u16) {
+    let listener = TcpListener::bind(format!("0.0.0.0:{}", port))
         .await
         .expect("Failed to start TCP listener.");
 
@@ -150,10 +152,13 @@ async fn serve(database_connection_pool: Pool) {
 #[tokio::main]
 async fn main() {
     SimpleLogger::new().init().unwrap();
+
+    let args = ChordmateArgs::parse();
+
     dotenv().ok();
-    let database_connection_pool = chordmate::database_connection::new_pool();
+    let database_connection_pool = chordmate::database_connection::new_pool(args.db);
     let server_handle = tokio::spawn(async move {
-        serve(database_connection_pool).await;
+        serve(database_connection_pool, args.port).await;
     });
 
     info!("waiting for requests ...");

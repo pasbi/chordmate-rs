@@ -1,4 +1,5 @@
-use chordmate::database_connection;
+use chordmate::arguments::MigrationArgs;
+use clap::Parser;
 use refinery::embed_migrations;
 use tokio_postgres::NoTls;
 
@@ -6,8 +7,8 @@ embed_migrations!("./migrations");
 
 #[tokio::main]
 async fn main() {
-    let config = database_connection::config();
-    let (mut client, connection) = config.connect(NoTls).await.unwrap();
+    let args = MigrationArgs::parse();
+    let (mut client, connection) = args.db.config().connect(NoTls).await.unwrap();
 
     // Drive the connection on a background task
     tokio::spawn(async move {

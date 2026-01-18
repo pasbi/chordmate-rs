@@ -1,22 +1,13 @@
+use crate::arguments::DatabaseArgs;
 use deadpool::managed::PoolError;
 use deadpool_postgres::{ManagerConfig, Object, Pool, RecyclingMethod, Runtime};
 use tokio::task::JoinHandle;
 use tokio_postgres::{Error, NoTls, Row};
 
-pub fn config() -> tokio_postgres::Config {
-    let mut pg_cfg = tokio_postgres::Config::new();
-    pg_cfg.dbname("postgres");
-    pg_cfg.host("localhost");
-    pg_cfg.user("postgres");
-    pg_cfg.password("secret");
-    pg_cfg.port(15432);
-    pg_cfg.dbname("postgres");
-    pg_cfg
-}
-
-pub fn new_pool() -> Pool {
+pub fn new_pool(args: DatabaseArgs) -> Pool {
+    let config = args.config();
     let manager = deadpool_postgres::Manager::from_config(
-        config(),
+        config,
         NoTls,
         ManagerConfig {
             recycling_method: RecyclingMethod::Fast,
