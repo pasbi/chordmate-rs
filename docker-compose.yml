@@ -5,11 +5,11 @@ services:
       dockerfile: Dockerfile
     env_file:
       - backend/.env
-    ports:
-      - 3000:3000
     depends_on:
       database:
         condition: service_healthy
+    ports:
+      - "3000:3000"
     command: [
       "--db-host", "database",
       "--db-port", "5432",
@@ -40,6 +40,15 @@ services:
       - 15080:80
     volumes:
       - pgadmin-data:/var/lib/pgadmin/
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
 
 volumes:
   pg-data:
