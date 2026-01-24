@@ -70,19 +70,15 @@ export default function useSong(id: number) {
     variables: { id },
   });
 
-  const [updateSongContent] = useMutation<
-    UpdateSongContentData,
-    UpdateSongContentVars
-  >(UPDATE_SONG_CONTENT);
-
-  const [updateSongTrack] = useMutation<
-    UpdateSongTrackData,
-    UpdateSongTrackVars
-  >(UPDATE_SONG_TRACK);
-
-  const [updateSongMeta] = useMutation<UpdateSongMetaData, UpdateSongMetaVars>(
-    UPDATE_SONG_META,
+  const [updateSongContent] = useMutation<UpdateSongContentData, UpdateSongContentVars>(
+    UPDATE_SONG_CONTENT
   );
+
+  const [updateSongTrack] = useMutation<UpdateSongTrackData, UpdateSongTrackVars>(
+    UPDATE_SONG_TRACK
+  );
+
+  const [updateSongMeta] = useMutation<UpdateSongMetaData, UpdateSongMetaVars>(UPDATE_SONG_META);
 
   const saveContent = async (content: string) => {
     if (!id) return;
@@ -100,11 +96,11 @@ export default function useSong(id: number) {
     });
   };
 
-  const saveSongMeta = async (title: string, artist: string) => {
+  const saveSongMeta = async (title?: string, artists?: string[]) => {
     if (!id) return;
-    console.log(`save song meta data: '${id}', '${title}', '${artist}'`);
+    console.log(`save song meta data: '${id}', '${title}', '${artists}'`);
     await updateSongMeta({
-      variables: { id, title, artist },
+      variables: { id, title: title ?? "", artist: artists?.join(", ") ?? "" },
       refetchQueries: [{ query: GET_SONG, variables: { id } }],
     });
   };

@@ -5,3 +5,14 @@ export default interface Song {
   spotifyTrack: string;
   content: string;
 }
+
+/**
+ * Returns a human-readable label for a song, e.g. "Title Artist".
+ * Omits missing title or artist.
+ */
+export function songLabel(song?: Song): string {
+  if (!song) {
+    return "";
+  }
+  return [song.title, song.artist].filter(Boolean).join(" ");
+}

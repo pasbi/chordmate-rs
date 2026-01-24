@@ -1,16 +1,17 @@
-import type Song from '../types/Song';
-import { useQuery } from '@apollo/client/react';
-import type GetSongsData from '../types/GetSongsData';
-import { GET_SONGS } from '../graphql';
-import { useMemo, useState } from 'react';
+import type Song from "../types/Song";
+import { useQuery } from "@apollo/client/react";
+import type GetSongsData from "../types/GetSongsData";
+import { GET_SONGS } from "../graphql";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
-type SortField = 'id' | 'title' | 'artist';
+type SortField = "id" | "title" | "artist";
 
 export default function SongsList() {
   const { data, loading, error } = useQuery<GetSongsData>(GET_SONGS);
 
-  const [filter, setFilter] = useState('');
-  const [sortField, setSortField] = useState<SortField>('id');
+  const [filter, setFilter] = useState("");
+  const [sortField, setSortField] = useState<SortField>("id");
   const [sortAsc, setSortAsc] = useState(true);
 
   const displayedSongs = useMemo(() => {
@@ -25,10 +26,10 @@ export default function SongsList() {
         const valA = a[sortField];
         const valB = b[sortField];
         const f = sortAsc ? 1 : -1;
-        if (typeof valA === 'string' && typeof valB === 'string') {
+        if (typeof valA === "string" && typeof valB === "string") {
           return f * valA.toLowerCase().localeCompare(valB.toLowerCase());
         }
-        if (typeof valA === 'number' && typeof valB === 'number') {
+        if (typeof valA === "number" && typeof valB === "number") {
           return f * (valA - valB);
         }
         return 0;
@@ -63,14 +64,14 @@ export default function SongsList() {
         <thead>
           <tr className="border-b">
             <th className="p-2">Icon</th>
-            <th className="p-2 cursor-pointer" onClick={() => handleSort('title')}>
-              Title {sortField === 'title' ? (sortAsc ? '↑' : '↓') : ''}
+            <th className="p-2 cursor-pointer" onClick={() => handleSort("title")}>
+              Title {sortField === "title" ? (sortAsc ? "↑" : "↓") : ""}
             </th>
-            <th className="p-2 cursor-pointer" onClick={() => handleSort('artist')}>
-              Artist {sortField === 'artist' ? (sortAsc ? '↑' : '↓') : ''}
+            <th className="p-2 cursor-pointer" onClick={() => handleSort("artist")}>
+              Artist {sortField === "artist" ? (sortAsc ? "↑" : "↓") : ""}
             </th>
-            <th className="p-2 cursor-pointer" onClick={() => handleSort('id')}>
-              ID {sortField === 'id' ? (sortAsc ? '↑' : '↓') : ''}
+            <th className="p-2 cursor-pointer" onClick={() => handleSort("id")}>
+              ID {sortField === "id" ? (sortAsc ? "↑" : "↓") : ""}
             </th>
           </tr>
         </thead>
@@ -79,13 +80,13 @@ export default function SongsList() {
             <tr key={song.id} className="border-b hover:bg-gray-50">
               <td>AA</td>
               <td className="p-2">
-                <a href={`/songs/${song.id}`}>{song.title}</a>
+                <Link to={`${song.id}`}>{song.title}</Link>
               </td>
               <td className="p-2">
-                <a href={`/songs/${song.id}`}>{song.artist}</a>
+                <Link to={`${song.id}`}>{song.artist}</Link>
               </td>
               <td className="p-2">
-                <a href={`/songs/${song.id}`}>{song.id}</a>
+                <Link to={`${song.id}`}>{song.id}</Link>
               </td>
             </tr>
           ))}

@@ -1,10 +1,8 @@
-import { useEffect, useRef, useState } from "react";
-import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import styles from "./SongDetail.module.css";
 import Editor from "../components/Editor";
-import type {SpotifyTrack} from "../types/SpotifyTrack";
-import SpotifySearchModal from "./SpotifySearchModal";
-import SpotifyPlayer, {type TrackInfo } from "./SpotifyPlayer";
+import SpotifyPlayer from "./SpotifyPlayer";
 import useSong from "../hooks/useSong";
 import useTrackInfo from "../hooks/useTrackInfo";
 import { useAccessToken } from "../hooks/useAccessToken";
@@ -12,19 +10,10 @@ import { useAccessToken } from "../hooks/useAccessToken";
 export default function SongDetail() {
   const { id: idString } = useParams<{ id: string }>();
 
-  const location = useLocation();
-  const queryParams = new URLSearchParams(location.search);
-  const init = useRef(queryParams.get("init") === "true");
   const navigate = useNavigate();
 
   const id = parseInt(idString!);
-  const { song, loading, error, saveContent, saveTrack, saveSongMeta } =
-    useSong(id);
-  const [modalOpen, setModalOpen] = useState(false);
-  const closeSearch = () => {
-    init.current = false;
-    setModalOpen(false);
-  };
+  const { song, loading, error, saveContent, saveSongMeta } = useSong(id);
   const [editorContent, setEditorContent] = useState<string>("");
 
   const accessToken = useAccessToken();
@@ -36,39 +25,9 @@ export default function SongDetail() {
     }
   }, [song]);
 
-  useEffect(() => {
-    if (init.current && song) {
-      setModalOpen(true);
-    }
-  });
-
-  let [updateSongInfoFromTrackLater, setUpdateSongInfoFromTrackLater] =
-    useState(false);
-
-  const setSongInfoFromTrack = (trackInfo: TrackInfo | null) => {
-    void saveSongMeta(
-      trackInfo?.title ?? "",
-      trackInfo?.artists.join(", ") ?? "",
-    );
-  };
-  const setSongInfoFromTrackRef = useRef(setSongInfoFromTrack);
-  useEffect(() => {
-    if (updateSongInfoFromTrackLater) {
-      setSongInfoFromTrackRef.current(trackInfo);
-    }
-  }, [trackInfo, updateSongInfoFromTrackLater, setSongInfoFromTrackRef]);
-
   if (loading) return <p>Loading...</p>;
   if (error) return <p>Error: {error.message}</p>;
   if (!song) return <p>Song not found</p>;
-
-  const handleTrackSelected = async (track: SpotifyTrack) => {
-    if (init.current && song) {
-      setUpdateSongInfoFromTrackLater(true);
-    }
-    await saveTrack(track.id);
-    closeSearch();
-  };
 
   return (
     <div className={styles.songDetailContainer}>
@@ -79,20 +38,13 @@ export default function SongDetail() {
         </hgroup>
         <SpotifyPlayer trackId={song.spotifyTrack} />
         <div className={styles.tools}>
-          <button onClick={() => setModalOpen(true)}>Link Spotify Track</button>
-          <button onClick={() => setSongInfoFromTrack(trackInfo)}>
+          <button onClick={() => navigate("search-spotify")}>Link Spotify Track</button>
+          <button onClick={() => saveSongMeta(trackInfo?.title, trackInfo?.artists)}>
             Use Track Info
           </button>
           <button onClick={() => saveContent(editorContent)}>Save</button>
           <button onClick={() => navigate(`confirm-delete`)}>Delete</button>
         </div>
-        {modalOpen && (
-          <SpotifySearchModal
-            initialQuery={`${song.title} ${song.artist}`}
-            onSelect={handleTrackSelected}
-            onClose={closeSearch}
-          />
-        )}
       </header>
       <Editor content={song.content} onUpdate={setEditorContent} />
     </div>

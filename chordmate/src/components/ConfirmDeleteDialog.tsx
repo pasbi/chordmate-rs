@@ -14,7 +14,7 @@ export function ConfirmDeleteDialog() {
       variables: { id },
       refetchQueries: [{ query: GET_SONGS, variables: {} }],
     });
-    navigate("/songs");
+    navigate("/songs", { replace: true });
   };
 
   return (
