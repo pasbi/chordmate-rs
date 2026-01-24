@@ -5,22 +5,8 @@ import GetSongsData from "../types/GetSongsData";
 import { gql } from "@apollo/client";
 import { GET_SONGS } from "../graphql";
 
-const DELETE_SONG = gql`
-  mutation DeleteSong($id: Int!) {
-    deleteSong(id: $id)
-  }
-`;
-
 export default function SongsList() {
   const { data, loading, error } = useQuery<GetSongsData>(GET_SONGS);
-  const [deleteSong] = useMutation(DELETE_SONG);
-
-  const handleDelete = async (id: number) => {
-    await deleteSong({
-      variables: { id },
-      refetchQueries: [{ query: GET_SONGS, variables: {} }],
-    });
-  };
 
   if (loading) return <p>Loading songs...</p>;
   if (error) return <p>Error: {error.message}</p>;
@@ -31,7 +17,6 @@ export default function SongsList() {
       <ul>
         {data?.songs?.map((song: Song) => (
           <li key={song.id}>
-            <button onClick={() => handleDelete(song.id)}>Delete</button>
             &nbsp;
             <Link to={`/songs/${song.id}`}>
               <strong>{song.title || "(untitled)"}</strong> —{" "}

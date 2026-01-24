@@ -4,9 +4,16 @@ import { ApolloClient, InMemoryCache, HttpLink } from "@apollo/client";
 import { ApolloProvider } from "@apollo/client/react";
 import SongsManager from "components/SongsManager";
 import useSystemTheme from "hooks/useSystemTheme";
-import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Link,
+  Navigate,
+} from "react-router-dom";
 import About from "components/About";
 import SongDetail from "components/SongDetail";
+import { ConfirmDeleteDialog } from "./components/ConfirmDeleteDialog";
 
 const link = new HttpLink({
   uri: `http://${window.location.hostname}:3000/graphql`, // your Rust backend
@@ -31,9 +38,14 @@ function App() {
           </nav>
           <div className="routes-wrapper">
             <Routes>
-              <Route path="/" element={<SongsManager />} />
+              <Route path="/" element={<Navigate to="/songs" replace />} />
+              <Route path="/songs" element={<SongsManager />} />
               <Route path="/about" element={<About />} />
               <Route path="/songs/:id" element={<SongDetail />} />
+              <Route
+                path="/songs/:id/confirm-delete"
+                element={<ConfirmDeleteDialog />}
+              />
             </Routes>
           </div>
         </div>

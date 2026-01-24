@@ -10,3 +10,9 @@ export const GET_SONGS = gql`
     }
   }
 `;
+
+export const DELETE_SONG = gql`
+  mutation DeleteSong($id: Int!) {
+    deleteSong(id: $id)
+  }
+`;

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useLocation, useParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import styles from "./SongDetail.module.css";
 import Editor from "components/Editor";
 import SpotifyTrack from "types/SpotifyTrack";
@@ -15,6 +15,7 @@ export default function SongDetail() {
   const location = useLocation();
   const queryParams = new URLSearchParams(location.search);
   let init = useRef(queryParams.get("init") === "true");
+  const navigate = useNavigate();
 
   const id = parseInt(idString!);
   const { song, loading, error, saveContent, saveTrack, saveSongMeta } =
@@ -83,6 +84,7 @@ export default function SongDetail() {
             Use Track Info
           </button>
           <button onClick={() => saveContent(editorContent)}>Save</button>
+          <button onClick={() => navigate(`confirm-delete`)}>Delete</button>
         </div>
         {modalOpen && (
           <SpotifySearchModal

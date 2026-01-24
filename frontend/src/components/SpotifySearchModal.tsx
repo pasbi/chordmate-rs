@@ -1,4 +1,4 @@
-import { useState, useEffect, ChangeEvent } from "react";
+import { useState, useEffect, ChangeEvent, useRef } from "react";
 import { gql } from "@apollo/client";
 import { useLazyQuery } from "@apollo/client/react";
 import SpotifyTrack from "../types/SpotifyTrack";
@@ -79,6 +79,11 @@ export default function SpotifySearchModal({
     setQuery(e.target.value);
   };
 
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
+
   return (
     <div className={styles.modalOverlay}>
       <div className={styles.modal}>
@@ -87,6 +92,7 @@ export default function SpotifySearchModal({
           ×
         </button>
         <input
+          ref={inputRef}
           value={query}
           onChange={handleChange}
           placeholder="Search Spotify tracks..."
