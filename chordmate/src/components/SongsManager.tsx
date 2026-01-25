@@ -3,9 +3,11 @@ import SongsList from "./SongsList";
 
 export default function SongsManager() {
   return (
-    <div>
+    <div className="flex flex-col h-full">
       <SongForm />
-      <SongsList />
+      <div className="flex-1 overflow-auto">
+        <SongsList />
+      </div>
     </div>
   );
 }

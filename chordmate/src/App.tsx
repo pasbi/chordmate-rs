@@ -27,11 +27,11 @@ function App() {
   return (
     <ApolloProvider client={client}>
       <Router>
-        <div className="app-container">
-          <nav>
+        <div className="flex flex-col h-screen">
+          <nav className="p-4 border-b">
             <Link to="/">Songs</Link> | <Link to="/about">About</Link>
           </nav>
-          <div className="routes-wrapper">
+          <div className="flex-1 overflow-auto">
             <Routes>
               <Route path="/" element={<Navigate to="/songs" replace />} />
               <Route path="/about" element={<About />} />

@@ -49,7 +49,7 @@ export default function SongsList() {
   if (error) return <p>Error: {error.message}</p>;
 
   return (
-    <div className="max-w-xl mx-auto p-4">
+    <div className="max-w-xl mx-auto p-4 flex flex-col h-full">
       <input
         type="text"
         placeholder="Search by title, artist, or ID"
@@ -57,41 +57,42 @@ export default function SongsList() {
         onChange={(e) => setFilter(e.target.value)}
         className="w-full p-2 mb-4 border rounded"
       />
-
-      <table className="w-full border-collapse">
-        <thead>
-          <tr className="border-b">
-            <th className="p-2">Icon</th>
-            <th className="p-2 cursor-pointer" onClick={() => handleSort("title")}>
-              Title {sortField === "title" ? (sortAsc ? "↑" : "↓") : ""}
-            </th>
-            <th className="p-2 cursor-pointer" onClick={() => handleSort("artist")}>
-              Artist {sortField === "artist" ? (sortAsc ? "↑" : "↓") : ""}
-            </th>
-            <th className="p-2 cursor-pointer" onClick={() => handleSort("id")}>
-              ID {sortField === "id" ? (sortAsc ? "↑" : "↓") : ""}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {displayedSongs.map((song) => (
-            <tr key={song.id} className="border-b hover:bg-gray-50">
-              <td>AA</td>
-              <td className="p-2">
-                <Link to={`${song.id}`}>{song.title}</Link>
-              </td>
-              <td className="p-2">
-                <Link to={`${song.id}`}>{song.artist}</Link>
-              </td>
-              <td className="p-2">
-                <Link to={`${song.id}`}>{song.id}</Link>
-              </td>
+      <div className="h-full border rounded">
+        <table className="w-full border-collapse">
+          <thead className="sticky top-0 z-10">
+            <tr className="border-b">
+              <th className="p-2">Icon</th>
+              <th className="p-2 cursor-pointer text-left" onClick={() => handleSort("title")}>
+                Title {sortField === "title" ? (sortAsc ? "↑" : "↓") : ""}
+              </th>
+              <th className="p-2 cursor-pointer text-left" onClick={() => handleSort("artist")}>
+                Artist {sortField === "artist" ? (sortAsc ? "↑" : "↓") : ""}
+              </th>
+              <th className="p-2 cursor-pointer text-left" onClick={() => handleSort("id")}>
+                ID {sortField === "id" ? (sortAsc ? "↑" : "↓") : ""}
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {displayedSongs.map((song) => (
+              <tr key={song.id} className="border-b hover:bg-gray-50">
+                <td>🎵</td>
+                <td className="p-2">
+                  <Link to={`${song.id}`}>{song.title}</Link>
+                </td>
+                <td className="p-2">
+                  <Link to={`${song.id}`}>{song.artist}</Link>
+                </td>
+                <td className="p-2">
+                  <Link to={`${song.id}`}>{song.id}</Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
 
-      {displayedSongs.length === 0 && <p className="text-center py-4">No songs found</p>}
+        {displayedSongs.length === 0 && <p className="text-center py-4">No songs found</p>}
+      </div>
     </div>
   );
 }
