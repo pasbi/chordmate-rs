@@ -1,8 +1,10 @@
 import { useNavigate, useParams } from "react-router-dom";
 import { useMutation } from "@apollo/client/react";
 import { DELETE_SONG, GET_SONGS } from "../graphql";
+import Button from "./Button.tsx";
+import { Modal } from "./Modal.tsx";
 
-export function ConfirmDeleteDialog() {
+export function ConfirmDeleteDialog({ onClose }: { onClose: () => void }) {
   const { id: idString } = useParams<{ id: string }>();
   const id = parseInt(idString!);
 
@@ -14,18 +16,22 @@ export function ConfirmDeleteDialog() {
       variables: { id },
       refetchQueries: [{ query: GET_SONGS, variables: {} }],
     });
-    navigate("/songs", { replace: true });
+    navigate("/songs");
   };
 
   return (
-    <div className="backdrop">
-      <div className="dialog">
-        <h2>Delete item?</h2>
-        <p>This action cannot be undone.</p>
+    <Modal onClose={onClose}>
+      <h2 className="text-xl font-semibold mb-2 p-4 text-gray-900 dark:text-gray-100">
+        Delete item?
+      </h2>
+      <p>This action cannot be undone.</p>
 
-        <button onClick={handleConfirm}>Delete</button>
-        <button onClick={() => navigate(-1)}>Cancel</button>
-      </div>
-    </div>
+      <Button variant="danger" onClick={handleConfirm}>
+        Delete
+      </Button>
+      <Button variant="primary" onClick={onClose}>
+        Cancel
+      </Button>
+    </Modal>
   );
 }
