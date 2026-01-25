@@ -25,7 +25,7 @@ function trackIdToUri(trackId: string) {
   return `spotify:track/${trackId}`;
 }
 
-export default function SpotifyPlayer({ trackId }: { trackId: string }) {
+export default function SpotifyPlayer({ trackId, folded }: { trackId: string; folded: boolean }) {
   const accessToken = useAccessToken();
   const { player, deviceId } = useSpotifyPlayer(accessToken, trackIdToUri(trackId));
   const [paused, setPaused] = useState(true);
@@ -160,89 +160,89 @@ export default function SpotifyPlayer({ trackId }: { trackId: string }) {
     <div
       className={`bg-gray-100 dark:bg-gray-800 rounded-lg p-4 flex flex-col gap-4 transition-all duration-300`}
     >
-      {/* Expanded layout */}
-        <div className="flex gap-4">
-          {/* Album Art */}
+      <div className="flex gap-4">
+        {!folded && (
           <img
-            className="w-32 h-32 rounded object-cover flex-shrink-0"
+            className="w-32 h-32 rounded object-cover shrink-0"
             src={trackInfo?.albumArtUrl ?? undefined}
             alt="Album Art"
           />
+        )}
 
-          {/* Track info and controls */}
-          <div className="flex-1 flex flex-col justify-between">
-            {/* Seek bar + labels */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                {formatTime(position as Milliseconds)}
-              </span>
-              <input
-                className="flex-1 h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-600"
-                type="range"
-                min={0}
-                max={duration}
-                value={position}
-                onChange={(e) => handleSeek(Number(e.target.value))}
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-300">
-                {formatTime(duration as Milliseconds)}
-              </span>
-            </div>
+        {/* Track info and controls */}
+        <div className="flex-1 flex flex-col justify-between">
+          {/* Seek bar + labels */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {formatTime(position as Milliseconds)}
+            </span>
+            <input
+              className="flex-1 h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-600"
+              type="range"
+              min={0}
+              max={duration}
+              value={position}
+              onChange={(e) => handleSeek(Number(e.target.value))}
+            />
+            <span className="text-sm text-gray-700 dark:text-gray-300">
+              {formatTime(duration as Milliseconds)}
+            </span>
+          </div>
 
-            {/* Control buttons */}
-            <div className="flex flex-wrap gap-2 mt-2">
-              <button
-                className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-                onClick={seekStart}
-              >
-                ⇤
-              </button>
-              <button
-                className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-                onClick={() => seek(-10 as Seconds)}
-              >
-                -10s
-              </button>
-              <button
-                className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-                onClick={() => seek(-1 as Seconds)}
-              >
-                -1s
-              </button>
-              <button
-                className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded"
-                onClick={togglePlay}
-              >
-                {paused ? "Play" : "Pause"}
-              </button>
-              <button
-                className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-                onClick={() => seek(1 as Seconds)}
-              >
-                +1s
-              </button>
-              <button
-                className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-                onClick={() => seek(10 as Seconds)}
-              >
-                +10s
-              </button>
-              <button
-                className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
-                ref={volumeButtonRef}
-                onClick={() => setShowVolumeSlider(!showVolumeSlider)}
-              >
-                Volume
-              </button>
-            </div>
+          {/* Control buttons */}
+          <div className="flex flex-wrap gap-2 mt-2">
+            <button
+              className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+              onClick={seekStart}
+            >
+              ⇤
+            </button>
+            <button
+              className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+              onClick={() => seek(-10 as Seconds)}
+            >
+              -10s
+            </button>
+            <button
+              className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+              onClick={() => seek(-1 as Seconds)}
+            >
+              -1s
+            </button>
+            <button
+              className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded"
+              onClick={togglePlay}
+            >
+              {paused ? "Play" : "Pause"}
+            </button>
+            <button
+              className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+              onClick={() => seek(1 as Seconds)}
+            >
+              +1s
+            </button>
+            <button
+              className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+              onClick={() => seek(10 as Seconds)}
+            >
+              +10s
+            </button>
+            <button
+              className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+              ref={volumeButtonRef}
+              onClick={() => setShowVolumeSlider(!showVolumeSlider)}
+            >
+              Volume
+            </button>
+          </div>
 
-            {/* Track title and artists */}
+          {!folded && (
             <span className="text-sm mt-2 text-gray-800 dark:text-gray-200 truncate">
               {trackInfo?.title ?? ""} — {trackInfo?.artists?.join(", ") ?? ""}
             </span>
-          </div>
+          )}
         </div>
-      )
+      </div>
 
       {showVolumeSlider && (
         <div ref={volumeContainerRef} className="mt-2 flex items-center gap-2">

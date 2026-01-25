@@ -16,7 +16,7 @@ const client = new ApolloClient({
   cache: new InMemoryCache(),
 });
 
-function App() {
+export default function App() {
   const theme = useSystemTheme();
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -41,5 +41,3 @@ function App() {
     </ApolloProvider>
   );
 }
-
-export default App;
