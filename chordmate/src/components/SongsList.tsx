@@ -50,7 +50,7 @@ export default function SongsList() {
   if (error) return <p>Error: {error.message}</p>;
 
   return (
-    <div className="max-w-xl mx-auto p-4 flex flex-col h-full">
+    <div className="w-full px-3 sm:px-4 md:max-w-xl md:mx-auto">
       <input
         type="text"
         placeholder="Search by title, artist, or ID"
@@ -58,8 +58,8 @@ export default function SongsList() {
         onChange={(e) => setFilter(e.target.value)}
         className="w-full p-2 mb-4 border rounded"
       />
-      <div className="flex-1 overflow-auto border rounded">
-        <table className="w-full border-collapse">
+      <div className="flex-1 overflow-x-auto">
+        <table className="min-w-125 w-full border-collapse">
           <thead className="sticky top-0 z-10 bg-blue-200 dark:bg-blue-950">
             <tr className="border-b">
               <th className="p-2">Icon</th>
@@ -78,7 +78,7 @@ export default function SongsList() {
             {displayedSongs.map((song) => (
               <tr
                 key={song.id}
-                className="border-b hover:bg-gray-50"
+                className="border-b hover:bg-gray-50 dark:hover:bg-blue-900"
                 onClick={() => navigate(`${song.id}`)}
               >
                 <td>🎵</td>

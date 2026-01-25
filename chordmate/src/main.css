@@ -4,3 +4,7 @@ html, body, #root {
     height: 100%;
     margin: 0;
 }
+
+.chord-token {
+    @apply text-blue-600 dark:text-blue-400 font-extrabold;
+}
