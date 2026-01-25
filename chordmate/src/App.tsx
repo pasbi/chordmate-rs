@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import "./App.css";
 import { ApolloClient, InMemoryCache, HttpLink } from "@apollo/client";
 import { ApolloProvider } from "@apollo/client/react";
 import SongsManager from "./components/SongsManager";
@@ -27,7 +26,7 @@ function App() {
   return (
     <ApolloProvider client={client}>
       <Router>
-        <div className="flex flex-col h-screen">
+        <div className="flex flex-col h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
           <nav className="p-4 border-b">
             <Link to="/">Songs</Link> | <Link to="/about">About</Link>
           </nav>

@@ -2,7 +2,6 @@ import { useAccessToken } from "../hooks/useAccessToken";
 import { useSpotifyPlayer } from "../hooks/useSpotifyPlayer";
 import { useEffect, useRef, useState } from "react";
 import type { SpotifyPlaybackState } from "../types/global";
-import styles from "./SpotifyPlayer.module.css";
 import useTrackInfo from "../hooks/useTrackInfo";
 
 type Milliseconds = number & { readonly __unit: "ms" };
@@ -28,10 +27,7 @@ function trackIdToUri(trackId: string) {
 
 export default function SpotifyPlayer({ trackId }: { trackId: string }) {
   const accessToken = useAccessToken();
-  const { player, deviceId } = useSpotifyPlayer(
-    accessToken,
-    trackIdToUri(trackId),
-  );
+  const { player, deviceId } = useSpotifyPlayer(accessToken, trackIdToUri(trackId));
   const [paused, setPaused] = useState(true);
   const [duration, setDuration] = useState(0); // in ms
 
@@ -109,28 +105,22 @@ export default function SpotifyPlayer({ trackId }: { trackId: string }) {
 
     try {
       if (paused) {
-        await fetch(
-          `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
-          {
-            method: "PUT",
-            body: JSON.stringify({
-              uris: [trackIdToUri(trackId)],
-              position_ms: position,
-            }),
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              "Content-Type": "application/json",
-            },
+        await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            uris: [trackIdToUri(trackId)],
+            position_ms: position,
+          }),
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
           },
-        );
+        });
       } else {
-        await fetch(
-          `https://api.spotify.com/v1/me/player/pause?device_id=${deviceId}`,
-          {
-            method: "PUT",
-            headers: { Authorization: `Bearer ${accessToken}` },
-          },
-        );
+        await fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${deviceId}`, {
+          method: "PUT",
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
       }
     } catch (err) {
       console.error(err);
@@ -154,8 +144,7 @@ export default function SpotifyPlayer({ trackId }: { trackId: string }) {
       if (!(event.target instanceof Node)) {
         return;
       }
-      const target =
-        event.target instanceof Node ? (event.target as Node) : null;
+      const target = event.target instanceof Node ? (event.target as Node) : null;
       if (
         !volumeContainerRef?.current?.contains(target) &&
         !volumeButtonRef?.current?.contains(target)
@@ -167,78 +156,108 @@ export default function SpotifyPlayer({ trackId }: { trackId: string }) {
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
-
   return (
-    <div className={styles.player}>
-      <img
-        className={styles.albumArt}
-        src={trackInfo?.albumArtUrl ?? undefined}
-        alt="Album Art"
-      />
-      <div className={styles.wrapper}>
-        <div className={styles.sliderRow}>
-          <span className={styles.currentTime}>
-            {formatTime(position as Milliseconds)}
-          </span>
-          <input
-            className={styles.seeker}
-            type="range"
-            min={0}
-            max={duration}
-            value={position}
-            onChange={(e) => handleSeek(Number(e.target.value))}
+    <div
+      className={`bg-gray-100 dark:bg-gray-800 rounded-lg p-4 flex flex-col gap-4 transition-all duration-300`}
+    >
+      {/* Expanded layout */}
+        <div className="flex gap-4">
+          {/* Album Art */}
+          <img
+            className="w-32 h-32 rounded object-cover flex-shrink-0"
+            src={trackInfo?.albumArtUrl ?? undefined}
+            alt="Album Art"
           />
-          <span className={styles.duration}>
-            {formatTime(duration as Milliseconds)}
-          </span>
+
+          {/* Track info and controls */}
+          <div className="flex-1 flex flex-col justify-between">
+            {/* Seek bar + labels */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                {formatTime(position as Milliseconds)}
+              </span>
+              <input
+                className="flex-1 h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-600"
+                type="range"
+                min={0}
+                max={duration}
+                value={position}
+                onChange={(e) => handleSeek(Number(e.target.value))}
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">
+                {formatTime(duration as Milliseconds)}
+              </span>
+            </div>
+
+            {/* Control buttons */}
+            <div className="flex flex-wrap gap-2 mt-2">
+              <button
+                className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                onClick={seekStart}
+              >
+                ⇤
+              </button>
+              <button
+                className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                onClick={() => seek(-10 as Seconds)}
+              >
+                -10s
+              </button>
+              <button
+                className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                onClick={() => seek(-1 as Seconds)}
+              >
+                -1s
+              </button>
+              <button
+                className="px-2 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded"
+                onClick={togglePlay}
+              >
+                {paused ? "Play" : "Pause"}
+              </button>
+              <button
+                className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                onClick={() => seek(1 as Seconds)}
+              >
+                +1s
+              </button>
+              <button
+                className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                onClick={() => seek(10 as Seconds)}
+              >
+                +10s
+              </button>
+              <button
+                className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"
+                ref={volumeButtonRef}
+                onClick={() => setShowVolumeSlider(!showVolumeSlider)}
+              >
+                Volume
+              </button>
+            </div>
+
+            {/* Track title and artists */}
+            <span className="text-sm mt-2 text-gray-800 dark:text-gray-200 truncate">
+              {trackInfo?.title ?? ""} — {trackInfo?.artists?.join(", ") ?? ""}
+            </span>
+          </div>
         </div>
-        <div className={styles.buttonsRow}>
-          <button className={styles.btn} onClick={seekStart}>
-            ⇤
-          </button>
-          <button className={styles.btn} onClick={() => seek(-10 as Seconds)}>
-            -10s
-          </button>
-          <button className={styles.btn} onClick={() => seek(-1 as Seconds)}>
-            -1s
-          </button>
-          <button className={styles.btn} onClick={togglePlay}>
-            {" "}
-            {paused ? "Play" : "Pause"}{" "}
-          </button>
-          <button className={styles.btn} onClick={() => seek(1 as Seconds)}>
-            +1s
-          </button>
-          <button className={styles.btn} onClick={() => seek(10 as Seconds)}>
-            +10s
-          </button>
-          <button
-            className={styles.volumeButton}
-            ref={volumeButtonRef}
-            onClick={() => {
-              setShowVolumeSlider(!showVolumeSlider);
-            }}
-          >
-            Volume
-          </button>
-        </div>
-        <span>
-          {trackInfo?.title ?? ""} — {trackInfo?.artists?.join(", ") ?? ""}
-        </span>
-      </div>
+      )
+
       {showVolumeSlider && (
-        <div ref={volumeContainerRef} className={styles.volumeContainer}>
+        <div ref={volumeContainerRef} className="mt-2 flex items-center gap-2">
           <input
             type="range"
             id="volumeSlider"
             min="0"
             max="100"
             value={volume}
-            onChange={(e) => {
-              setVolumePlayer(Number(e.target.value));
-            }}
+            onChange={(e) => setVolumePlayer(Number(e.target.value))}
+            className="flex-1 h-2 rounded-lg bg-gray-300 dark:bg-gray-600"
           />
-          <span id="volumeLabel">{volume}%</span>
+          <span id="volumeLabel" className="text-sm text-gray-700 dark:text-gray-300">
+            {volume}%
+          </span>
         </div>
       )}
     </div>
