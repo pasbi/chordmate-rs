@@ -18,8 +18,12 @@ export default function SongDetail() {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const accessToken = useAccessToken();
   const trackInfo = useTrackInfo(song?.spotifyTrack ?? "", accessToken);
-  const songHasNoLabel = ((song?.artist ?? "") + (song?.title ?? "")).trim().length == 0;
-  const [editMode, setEditMode] = useState(songHasNoLabel);
+  const [editMode, setEditMode] = useState(false);
+
+  useEffect(() => {
+    const songHasLabel = ((song?.artist ?? "") + (song?.title ?? "")).trim().length > 0;
+    queueMicrotask(() => setEditMode(!songHasLabel));
+  }, [song]);
 
   if (loading) return <p>Loading...</p>;
   if (error) return <p>Error: {error.message}</p>;
@@ -28,7 +32,12 @@ export default function SongDetail() {
   return (
     <div className="flex flex-col h-full gap-4 p-4">
       <div className="sticky">
-        <div onClick={() => setEditMode(!editMode)}>
+        <div
+          onClick={() => {
+            console.log(`toggle edit (was ${editMode})`);
+            setEditMode(!editMode);
+          }}
+        >
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {editMode && "Editing: "}
             {song.title}
@@ -57,7 +66,7 @@ export default function SongDetail() {
         )}
       </div>
       <div className="flex-1 overflow-auto border rounded">
-        <Editor content={song?.content ?? ""} onUpdate={setEditorContent} />
+        <Editor content={song?.content ?? ""} onUpdate={setEditorContent} editable={editMode} />
       </div>
 
       {searchOpen && <SpotifySearch onClose={() => setSearchOpen(false)} />}

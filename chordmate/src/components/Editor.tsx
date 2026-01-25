@@ -5,15 +5,17 @@ import CodeBlock from "@tiptap/extension-code-block";
 interface EditorProps {
   content: string;
   onUpdate?: (content: string) => void;
+  editable: boolean;
 }
 
-export default function Editor({ content, onUpdate }: EditorProps) {
+export default function Editor({ content, onUpdate, editable }: EditorProps) {
   const editor = useEditor({
     extensions: [StarterKit, CodeBlock],
     content: `<pre>${content}</pre>`,
     onUpdate: ({ editor }) => {
       onUpdate?.(editor.getHTML());
     },
+    editable,
   });
 
   return (
