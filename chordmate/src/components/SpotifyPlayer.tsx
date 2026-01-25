@@ -169,9 +169,7 @@ export default function SpotifyPlayer({ trackId, folded }: { trackId: string; fo
           />
         )}
 
-        {/* Track info and controls */}
         <div className="flex-1 flex flex-col justify-between">
-          {/* Seek bar + labels */}
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-700 dark:text-gray-300">
               {formatTime(position as Milliseconds)}
@@ -189,7 +187,6 @@ export default function SpotifyPlayer({ trackId, folded }: { trackId: string; fo
             </span>
           </div>
 
-          {/* Control buttons */}
           <div className="flex flex-wrap gap-2 mt-2">
             <button
               className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded hover:bg-gray-300 dark:hover:bg-gray-600"

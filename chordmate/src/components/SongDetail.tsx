@@ -11,7 +11,6 @@ import Button from "./Button.tsx";
 
 export default function SongDetail() {
   const { id: idString } = useParams<{ id: string }>();
-
   const id = parseInt(idString!);
   const { song, loading, error, saveContent, saveSongMeta } = useSong(id);
   const [editorContent, setEditorContent] = useState<string>("");
@@ -19,7 +18,7 @@ export default function SongDetail() {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const accessToken = useAccessToken();
   const trackInfo = useTrackInfo(song?.spotifyTrack ?? "", accessToken);
-  const [editMode, setEditMode] = useState<boolean>(false);
+  const [editMode, setEditMode] = useState(false);
 
   useEffect(() => {
     if (song) {
@@ -62,7 +61,6 @@ export default function SongDetail() {
       )}
       <Editor content={song?.content ?? ""} onUpdate={() => {}} />
 
-      {/* Modal */}
       {searchOpen && <SpotifySearch onClose={() => setSearchOpen(false)} />}
       {confirmDeleteOpen && <ConfirmDeleteDialog onClose={() => setConfirmDeleteOpen(false)} />}
     </div>

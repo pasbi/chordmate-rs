@@ -3,7 +3,7 @@ import { useQuery } from "@apollo/client/react";
 import type GetSongsData from "../types/GetSongsData";
 import { GET_SONGS } from "../graphql";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 type SortField = "id" | "title" | "artist";
 
@@ -13,6 +13,7 @@ export default function SongsList() {
   const [filter, setFilter] = useState("");
   const [sortField, setSortField] = useState<SortField>("id");
   const [sortAsc, setSortAsc] = useState(true);
+  const navigate = useNavigate();
 
   const displayedSongs = useMemo(() => {
     if (!data) {
@@ -75,17 +76,15 @@ export default function SongsList() {
           </thead>
           <tbody>
             {displayedSongs.map((song) => (
-              <tr key={song.id} className="border-b hover:bg-gray-50">
+              <tr
+                key={song.id}
+                className="border-b hover:bg-gray-50"
+                onClick={() => navigate(`${song.id}`)}
+              >
                 <td>🎵</td>
-                <td className="p-2">
-                  <Link to={`${song.id}`}>{song.title}</Link>
-                </td>
-                <td className="p-2">
-                  <Link to={`${song.id}`}>{song.artist}</Link>
-                </td>
-                <td className="p-2">
-                  <Link to={`${song.id}`}>{song.id}</Link>
-                </td>
+                <td className="p-2">{song.title}</td>
+                <td className="p-2">{song.artist}</td>
+                <td className="p-2">{song.id}</td>
               </tr>
             ))}
           </tbody>
