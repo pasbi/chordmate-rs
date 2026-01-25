@@ -24,11 +24,11 @@ export default function App() {
   return (
     <ApolloProvider client={client}>
       <Router>
-        <div className="flex flex-col h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-          <nav className="p-4 border-b">
+        <div className="flex flex-col h-full min-h-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+          <nav className="p-4 border-b sticky top-0 z-10 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
             <Link to="/">Songs</Link> | <Link to="/about">About</Link>
           </nav>
-          <div className="flex-1 overflow-auto">
+          <div className="flex-1 flex flex-col overflow-auto">
             <Routes>
               <Route path="/" element={<Navigate to="/songs" replace />} />
               <Route path="/about" element={<About />} />

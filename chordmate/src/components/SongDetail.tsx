@@ -31,35 +31,39 @@ export default function SongDetail() {
   if (!song) return <p>Song not found</p>;
 
   return (
-    <div className="p-4 flex flex-col gap-4">
-      <div onClick={() => setEditMode(!editMode)}>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          {editMode && "Editing: "}
-          {song.title}
-        </h1>
-        <p className="text-gray-700 dark:text-gray-300">{song.artist}</p>
-      </div>
-      <SpotifyPlayer trackId={song.spotifyTrack} folded={!editMode} />
-      {editMode && (
-        <div className="flex flex-wrap gap-2">
-          <Button variant="primary" onClick={() => setSearchOpen(true)}>
-            Link Spotify Track
-          </Button>
-          <Button
-            variant="primary"
-            onClick={() => saveSongMeta(trackInfo?.title, trackInfo?.artists)}
-          >
-            Use Track Info
-          </Button>
-          <Button variant="primary" onClick={() => saveContent(editorContent)}>
-            Save
-          </Button>
-          <Button variant="primary" onClick={() => setConfirmDeleteOpen(true)}>
-            Delete
-          </Button>
+    <div className="flex flex-col h-full gap-4 p-4">
+      <div className="sticky">
+        <div onClick={() => setEditMode(!editMode)}>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+            {editMode && "Editing: "}
+            {song.title}
+          </h1>
+          <p className="text-gray-700 dark:text-gray-300">{song.artist}</p>
         </div>
-      )}
-      <Editor content={song?.content ?? ""} onUpdate={() => {}} />
+        <SpotifyPlayer trackId={song.spotifyTrack} folded={!editMode} />
+        {editMode && (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="primary" onClick={() => setSearchOpen(true)}>
+              Link Spotify Track
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => saveSongMeta(trackInfo?.title, trackInfo?.artists)}
+            >
+              Use Track Info
+            </Button>
+            <Button variant="primary" onClick={() => saveContent(editorContent)}>
+              Save
+            </Button>
+            <Button variant="primary" onClick={() => setConfirmDeleteOpen(true)}>
+              Delete
+            </Button>
+          </div>
+        )}
+      </div>
+      <div className="flex-1 overflow-auto border rounded">
+        <Editor content={song?.content ?? ""} onUpdate={() => {}} />
+      </div>
 
       {searchOpen && <SpotifySearch onClose={() => setSearchOpen(false)} />}
       {confirmDeleteOpen && <ConfirmDeleteDialog onClose={() => setConfirmDeleteOpen(false)} />}

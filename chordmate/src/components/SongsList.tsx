@@ -58,7 +58,7 @@ export default function SongsList() {
         onChange={(e) => setFilter(e.target.value)}
         className="w-full p-2 mb-4 border rounded"
       />
-      <div className="h-full border rounded">
+      <div className="flex-1 overflow-auto border rounded">
         <table className="w-full border-collapse">
           <thead className="sticky top-0 z-10">
             <tr className="border-b">
