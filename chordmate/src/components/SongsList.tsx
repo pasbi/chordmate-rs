@@ -60,7 +60,7 @@ export default function SongsList() {
       />
       <div className="flex-1 overflow-auto border rounded">
         <table className="w-full border-collapse">
-          <thead className="sticky top-0 z-10">
+          <thead className="sticky top-0 z-10 bg-blue-200 dark:bg-blue-950">
             <tr className="border-b">
               <th className="p-2">Icon</th>
               <th className="p-2 cursor-pointer text-left" onClick={() => handleSort("title")}>
