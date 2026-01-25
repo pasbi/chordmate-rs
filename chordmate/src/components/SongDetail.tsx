@@ -18,13 +18,8 @@ export default function SongDetail() {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const accessToken = useAccessToken();
   const trackInfo = useTrackInfo(song?.spotifyTrack ?? "", accessToken);
-  const [editMode, setEditMode] = useState(false);
-
-  useEffect(() => {
-    if (song) {
-      setEditorContent(song.content);
-    }
-  }, [song]);
+  const songHasNoLabel = ((song?.artist ?? "") + (song?.title ?? "")).trim().length == 0;
+  const [editMode, setEditMode] = useState(songHasNoLabel);
 
   if (loading) return <p>Loading...</p>;
   if (error) return <p>Error: {error.message}</p>;
@@ -62,7 +57,7 @@ export default function SongDetail() {
         )}
       </div>
       <div className="flex-1 overflow-auto border rounded">
-        <Editor content={song?.content ?? ""} onUpdate={() => {}} />
+        <Editor content={song?.content ?? ""} onUpdate={setEditorContent} />
       </div>
 
       {searchOpen && <SpotifySearch onClose={() => setSearchOpen(false)} />}
