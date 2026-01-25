@@ -1,6 +1,7 @@
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import CodeBlock from "@tiptap/extension-code-block";
+import { useEffect } from "react";
 
 interface EditorProps {
   content: string;
@@ -15,8 +16,14 @@ export default function Editor({ content, onUpdate, editable }: EditorProps) {
     onUpdate: ({ editor }) => {
       onUpdate?.(editor.getHTML());
     },
-    editable,
   });
+
+  useEffect(() => {
+    if (!editor) {
+      return;
+    }
+    editor.setEditable(!!editable);
+  }, [editor, editable]);
 
   return (
     <EditorContent

@@ -32,12 +32,7 @@ export default function SongDetail() {
   return (
     <div className="flex flex-col h-full gap-4 p-4">
       <div className="sticky">
-        <div
-          onClick={() => {
-            console.log(`toggle edit (was ${editMode})`);
-            setEditMode(!editMode);
-          }}
-        >
+        <div onClick={() => setEditMode(!editMode)}>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
             {editMode && "Editing: "}
             {song.title}
