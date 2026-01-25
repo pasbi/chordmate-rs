@@ -50,7 +50,6 @@ export default function SongsList() {
 
   return (
     <div className="max-w-xl mx-auto p-4">
-      {/* Filter input */}
       <input
         type="text"
         placeholder="Search by title, artist, or ID"
@@ -59,7 +58,6 @@ export default function SongsList() {
         className="w-full p-2 mb-4 border rounded"
       />
 
-      {/* Table */}
       <table className="w-full border-collapse">
         <thead>
           <tr className="border-b">
