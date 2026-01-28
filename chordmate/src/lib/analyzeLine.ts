@@ -1,10 +1,15 @@
-const CHORD_REGEX =
-  /^([A-G](#|b)?m?(maj|min)?(dim|aug)?(sus2|sus4|sus)?(\d+)?(add\d+)?(\/[A-G](#|b)?)?)$/i;
+const CHORD_REGEX_BASE =
+  /([A-G]([#b])?m?(maj|min)?(dim|aug)?(sus2|sus4|sus)?(\d+)?(add\d+)?(\/[A-G]([#b])?)?)/;
+
+const CHORD_REGEX = new RegExp(
+  `^((${CHORD_REGEX_BASE.source})|\\((${CHORD_REGEX_BASE.source})\\))$`,
+  "i"
+);
 
 const NC_REGEX = /^(N\.?C\.?)|x+|-+$/i;
 
-export default function analyzeLine(text: string) {
-  const tokens = text.split(/([\s-|]+)/);
+export function detectChords(line: string) {
+  const tokens = line.split(/([\s-|]+)/);
   let offset = 0;
 
   let chordCount = 0;
@@ -39,4 +44,8 @@ export default function analyzeLine(text: string) {
     isChordLine,
     matches: highlightRanges,
   };
+}
+
+export function detectSectionHeader(line: string) {
+  return /^\[[a-z0-9 -/]+\]$/i.test(line);
 }

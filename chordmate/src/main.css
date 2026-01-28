@@ -8,3 +8,7 @@ html, body, #root {
 .chord-token {
     @apply text-blue-600 dark:text-blue-400 font-extrabold;
 }
+
+.section-header-token {
+    @apply font-extrabold underline;
+}

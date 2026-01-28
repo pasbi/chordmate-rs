@@ -3,7 +3,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import { Plugin, PluginKey, EditorState } from "prosemirror-state";
 import { useEffect } from "react";
-import analyzeLine from "../lib/analyzeLine.ts";
+import { detectChords, detectSectionHeader } from "../lib/analyzeLine.ts";
 
 function decorations(state: EditorState) {
   const decorations: Decoration[] = [];
@@ -19,13 +19,18 @@ function decorations(state: EditorState) {
     let offset = pos; // tracks position of the current line
 
     for (const line of lines) {
-      const analysis = analyzeLine(line);
-      if (analysis.isChordLine) {
-        for (const match of analysis.matches) {
+      const chordAnalysis = detectChords(line);
+      if (chordAnalysis.isChordLine) {
+        for (const match of chordAnalysis.matches) {
           const start = offset + match.start;
           const end = start + match.end - match.start + 1;
           decorations.push(Decoration.inline(start, end, { class: "chord-token" }));
         }
+      }
+      if (detectSectionHeader(line)) {
+        decorations.push(
+          Decoration.inline(offset, offset + line.length, { class: "section-header-token" })
+        );
       }
       offset += line.length + 1; // +1 for the newline character
     }
