@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 
-export function useMetronome(initialBpm: number) {
+type UseMetronomeOptions = {
+  onBeat?: () => void;
+};
+
+export function useMetronome(initialBpm: number, options: UseMetronomeOptions = {}) {
   const [running, setRunning] = useState(false);
   const [bpm, setBpm] = useState(initialBpm);
   const bpmRef = useRef(bpm);
@@ -8,7 +12,7 @@ export function useMetronome(initialBpm: number) {
   const nextClickTimeRef = useRef<number>(0);
   const schedulerTimeoutRef = useRef<number | null>(null);
   const tapTimes = useRef<number[]>([]);
-
+  const { onBeat } = options;
   useEffect(() => {
     bpmRef.current = bpm;
   }, [bpm]);
@@ -36,6 +40,7 @@ export function useMetronome(initialBpm: number) {
 
     while (nextClickTimeRef.current < context.currentTime + scheduleAheadTime) {
       playClickAt(context, nextClickTimeRef.current);
+      onBeat?.();
       nextClickTimeRef.current += 60 / bpmRef.current;
     }
 

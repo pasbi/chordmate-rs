@@ -1,6 +1,6 @@
 import { useMetronome } from "../hooks/useMetronome";
 import Button from "./Button.tsx";
-import { forwardRef, useImperativeHandle } from "react";
+import { forwardRef, useImperativeHandle, useState } from "react";
 
 export type MetronomeHandle = {
   getBpm: () => number;
@@ -10,7 +10,13 @@ export type MetronomeHandle = {
 };
 
 export const Metronome = forwardRef<MetronomeHandle>((_, ref) => {
-  const { running, bpm, setBpm, start, stop, tap } = useMetronome(120);
+  const [blink, setBlink] = useState(false);
+  const { running, bpm, setBpm, start, stop, tap } = useMetronome(120, {
+    onBeat: () => {
+      setBlink(true);
+      setTimeout(() => setBlink(false), 80);
+    },
+  });
 
   useImperativeHandle(
     ref,
@@ -40,7 +46,11 @@ export const Metronome = forwardRef<MetronomeHandle>((_, ref) => {
           className="ml-1 w-16 px-1 border rounded"
         />
       </label>
-      <Button variant="secondary" onClick={tap}>
+      <Button
+        variant="secondary"
+        onClick={tap}
+        className={`transition-colors duration-100 ${blink ? "bg-green-500" : "bg-gray-300"}`}
+      >
         Tap
       </Button>
     </div>

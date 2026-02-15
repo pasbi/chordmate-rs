@@ -41,7 +41,7 @@ export default function SongDetail() {
       trackInfo?.title ?? null,
       trackInfo?.artists ?? null,
       trackInfo?.albumArtUrl ?? null,
-      metronomeRef?.current?.getBpm() ?? null,
+      metronomeRef?.current?.getBpm() ?? null
     );
     console.log(`BPM=${trackInfo?.bpm}`);
   }, [trackInfo, saveSongMeta]);
