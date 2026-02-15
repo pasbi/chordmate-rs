@@ -5,6 +5,7 @@ export default interface Song {
   spotifyTrack: string;
   content: string;
   albumArtUrl: string | null;
+  bpm: number | null;
 }
 
 /**

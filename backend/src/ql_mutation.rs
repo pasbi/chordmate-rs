@@ -1,6 +1,8 @@
 use crate::database_connection::DatabaseConnection;
 use juniper::{graphql_object, FieldResult};
 
+use log::info;
+
 pub struct QLMutation {
     pub database_connection: DatabaseConnection,
 }
@@ -61,14 +63,16 @@ impl QLMutation {
         title: String,
         artist: String,
         album_art_url: Option<String>,
+        bpm: Option<f64>,
     ) -> FieldResult<i32> {
         let client = self.database_connection.get().await?;
         let statement = client
-            .prepare("UPDATE songs SET title = $2, artist = $3, album_art_url = $4 WHERE id = $1 RETURNING id;")
+            .prepare("UPDATE songs SET title = $2, artist = $3, album_art_url = $4, bpm = $5 WHERE id = $1 RETURNING id;")
             .await
             .expect("SQL query preparation failed.");
+        info!("Statement: {:?}, {:?}", statement, bpm);
         let row = client
-            .query_one(&statement, &[&id, &title, &artist, &album_art_url])
+            .query_one(&statement, &[&id, &title, &artist, &album_art_url, &bpm])
             .await?;
         Ok(row.try_get("id")?)
     }

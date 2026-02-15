@@ -9,6 +9,7 @@ pub struct Song {
     pub spotify_track: String,
     pub content: String,
     pub album_art_url: Option<String>,
+    pub bpm: Option<f64>,
 }
 
 impl Song {
@@ -20,6 +21,7 @@ impl Song {
             spotify_track: row.try_get("spotify_track")?,
             content: row.try_get("content")?,
             album_art_url: row.try_get("album_art_url")?,
+            bpm: row.try_get("bpm")?,
         })
     }
 }

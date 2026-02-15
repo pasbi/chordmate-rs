@@ -11,6 +11,7 @@ const GET_SONG = gql`
       content
       spotifyTrack
       albumArtUrl
+      bpm
     }
   }
 `;
@@ -37,7 +38,7 @@ interface UpdateSongTrackData {
 //  - font size
 //  - auto scroll
 //  - focus the search block
-//  - metronom
+//  - space toggle start/pause even in spotifysearch
 
 interface UpdateSongTrackVars {
   id: number;
@@ -59,11 +60,18 @@ interface UpdateSongMetaVars {
   title: string;
   artist: string;
   albumArtUrl: string | null;
+  bpm: number | null;
 }
 
 const UPDATE_SONG_META = gql`
-  mutation UpdateSongContent($id: Int!, $title: String!, $artist: String!, $albumArtUrl: String) {
-    updateSongMeta(id: $id, title: $title, artist: $artist, albumArtUrl: $albumArtUrl)
+  mutation UpdateSongContent(
+    $id: Int!
+    $title: String!
+    $artist: String!
+    $albumArtUrl: String
+    $bpm: Float
+  ) {
+    updateSongMeta(id: $id, title: $title, artist: $artist, albumArtUrl: $albumArtUrl, bpm: $bpm)
   }
 `;
 
@@ -101,16 +109,20 @@ export default function useSong(id: number) {
   const saveSongMeta = async (
     title: string | null,
     artists: string[] | null,
-    albumArtUrl: string | null
+    albumArtUrl: string | null,
+    bpm: number | null
   ) => {
-    if (!id) return;
-    console.log(`save song meta data: '${id}', '${title}', '${artists}'`);
+    if (!id) {
+      return;
+    }
+    console.log(`Save Song Meta: ${title} ${bpm}`);
     await updateSongMeta({
       variables: {
         id,
         title: title ?? "",
         artist: artists?.join(", ") ?? "",
         albumArtUrl: albumArtUrl,
+        bpm: bpm,
       },
       refetchQueries: [{ query: GET_SONG, variables: { id } }],
     });

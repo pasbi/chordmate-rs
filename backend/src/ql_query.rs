@@ -17,7 +17,7 @@ impl QLQuery {
     pub async fn songs(&self) -> FieldResult<Vec<Song>> {
         let client = self.database_connection.get().await?;
         let statement = client
-            .prepare("SELECT id, title, artist, spotify_track, content, album_art_url FROM songs")
+            .prepare("SELECT * FROM songs")
             .await
             .expect("SQL query preparation failed");
 

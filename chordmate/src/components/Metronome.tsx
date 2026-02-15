@@ -1,8 +1,27 @@
 import { useMetronome } from "../hooks/useMetronome";
 import Button from "./Button.tsx";
+import { forwardRef, useImperativeHandle } from "react";
 
-export function Metronome() {
-  const { running, bpm, setBpm, start, stop, tap } = useMetronome(100);
+export type MetronomeHandle = {
+  getBpm: () => number;
+  setBpm: (bpm: number) => void;
+  start: () => void;
+  stop: () => void;
+};
+
+export const Metronome = forwardRef<MetronomeHandle>((_, ref) => {
+  const { running, bpm, setBpm, start, stop, tap } = useMetronome(120);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getBpm: () => bpm,
+      setBpm,
+      start,
+      stop,
+    }),
+    [bpm, setBpm, start, stop]
+  );
 
   return (
     <div className="flex items-center gap-2 p-2 border rounded">
@@ -26,4 +45,4 @@ export function Metronome() {
       </Button>
     </div>
   );
-}
+});

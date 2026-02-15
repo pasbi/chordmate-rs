@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-export function useMetronome(initialBpm: int) {
+export function useMetronome(initialBpm: number) {
   const [running, setRunning] = useState(false);
   const [bpm, setBpm] = useState(initialBpm);
   const bpmRef = useRef(bpm);

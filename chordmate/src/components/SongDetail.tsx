@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import Editor from "../components/Editor";
 import SpotifyPlayer from "./SpotifyPlayer";
@@ -9,7 +9,7 @@ import SpotifySearch from "./SpotifySearch.tsx";
 import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog.tsx";
 import Button from "./Button.tsx";
 import type Song from "../types/Song.ts";
-import { Metronome } from "./Metronome.tsx";
+import { Metronome, type MetronomeHandle } from "./Metronome.tsx";
 
 function isNewSong(song?: Song) {
   if (!song) {
@@ -30,12 +30,20 @@ export default function SongDetail() {
   const accessToken = useAccessToken();
   const trackInfo = useTrackInfo(song?.spotifyTrack ?? "", accessToken);
   const [editMode, setEditMode] = useState(false);
+
+  const metronomeRef = useRef<MetronomeHandle>(null);
+  useEffect(() => {
+    metronomeRef?.current?.setBpm(song?.bpm ?? 120);
+  }, [song]);
+
   const saveCurrentTrackMeta = useCallback(() => {
     saveSongMeta(
       trackInfo?.title ?? null,
       trackInfo?.artists ?? null,
-      trackInfo?.albumArtUrl ?? null
+      trackInfo?.albumArtUrl ?? null,
+      metronomeRef?.current?.getBpm() ?? null,
     );
+    console.log(`BPM=${trackInfo?.bpm}`);
   }, [trackInfo, saveSongMeta]);
 
   useEffect(() => {
@@ -107,7 +115,7 @@ export default function SongDetail() {
     <div className="flex flex-row md:flex-col gap-4">
       <div className="flex-auto">{controls}</div>
       <div className="flex-1">
-        <Metronome />
+        <Metronome ref={metronomeRef} />
       </div>
       <div className="flex-1">{albumArt}</div>
     </div>
