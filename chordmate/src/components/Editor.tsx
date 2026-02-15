@@ -2,7 +2,7 @@ import { EditorContent, Extension, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import { Plugin, PluginKey, EditorState } from "prosemirror-state";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { detectChords, detectSectionHeader } from "../lib/analyzeLine.ts";
 
 function decorations(state: EditorState) {
@@ -73,11 +73,47 @@ export default function Editor({ content, onUpdate, editable }: EditorProps) {
   useEffect(() => {
     editor.setEditable(editable);
   }, [editor, editable]);
+  const editorScrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      // Ignore if user is typing text
+      const target = e.target as HTMLElement;
+
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      if (!editorScrollRef.current) return;
+
+      const SCROLL_STEP = 60;
+
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        editorScrollRef.current.scrollBy({ top: SCROLL_STEP });
+        console.log("DOWN");
+      }
+
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        editorScrollRef.current.scrollBy({ top: -SCROLL_STEP });
+        console.log("UP");
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return (
-    <EditorContent
-      editor={editor}
-      className="flex-1 min-h-0 text-current outline-none font-mono whitespace-pre overflow-y-auto"
-    />
+    <div ref={editorScrollRef} className="h-full overflow-auto">
+      <EditorContent
+        editor={editor}
+        className="text-current outline-none font-mono whitespace-pre"
+      />
+    </div>
   );
 }

@@ -112,7 +112,7 @@ export default function SongDetail() {
   return (
     <div className="flex flex-col md:flex-row h-full gap-4 p-4">
       <div className="flex-auto md:max-w-1/3 md:overflow-auto">{sideBar}</div>
-      <div className="flex-auto overflow-auto border rounded">{songContent}</div>
+      <div className="flex-1 min-h-0">{songContent}</div>
 
       {searchOpen && <SpotifySearch onClose={onCloseSearch} />}
       {confirmDeleteOpen && <ConfirmDeleteDialog onClose={() => setConfirmDeleteOpen(false)} />}

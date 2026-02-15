@@ -1,6 +1,6 @@
 import { useAccessToken } from "../hooks/useAccessToken";
 import { useSpotifyPlayer } from "../hooks/useSpotifyPlayer";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SpotifyPlaybackState } from "../types/global";
 import useTrackInfo from "../hooks/useTrackInfo";
 
@@ -129,9 +129,31 @@ export default function SpotifyPlayer({ trackId, folded }: { trackId: string; fo
 
   const trackInfo = useTrackInfo(trackId, accessToken);
 
-  function seek(delta: Seconds) {
-    player?.seek(position + delta * 1000);
-  }
+  const seek = useCallback(
+    (delta: Seconds) => {
+      player?.seek(position + delta * 1000);
+    },
+    [player, position]
+  );
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      switch (e.key) {
+        case " ":
+          togglePlay();
+          e.preventDefault();
+          break;
+        case "ArrowRight":
+          seek((e.ctrlKey ? 10 : 1) as Seconds);
+          break;
+        case "ArrowLeft":
+          seek(-(e.ctrlKey ? 10 : 1) as Seconds);
+          break;
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [togglePlay, seek]);
 
   function seekStart() {
     player?.seek(0);
