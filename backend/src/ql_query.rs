@@ -3,6 +3,7 @@ use crate::song::Song;
 use crate::spotify::SpotifyClient;
 use crate::spotify_track::SpotifyTrack;
 use juniper::{graphql_object, FieldError, FieldResult, Value};
+use log::error;
 use std::sync::Arc;
 use tokio_postgres::Row;
 
@@ -16,7 +17,7 @@ impl QLQuery {
     pub async fn songs(&self) -> FieldResult<Vec<Song>> {
         let client = self.database_connection.get().await?;
         let statement = client
-            .prepare("SELECT id, title, artist, spotify_track, content FROM songs")
+            .prepare("SELECT id, title, artist, spotify_track, content, album_art_url FROM songs")
             .await
             .expect("SQL query preparation failed");
 
@@ -28,6 +29,7 @@ impl QLQuery {
         rows.iter()
             .map(|row| {
                 Song::from_row(row).map_err(|e| {
+                    error!("Failed to parse song: {}", e);
                     FieldError::new("Failed to parse song.", Value::scalar(e.to_string()))
                 })
             })

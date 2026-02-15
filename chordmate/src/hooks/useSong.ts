@@ -10,6 +10,7 @@ const GET_SONG = gql`
       artist
       content
       spotifyTrack
+      albumArtUrl
     }
   }
 `;
@@ -57,11 +58,12 @@ interface UpdateSongMetaVars {
   id: number;
   title: string;
   artist: string;
+  albumArtUrl: string | null;
 }
 
 const UPDATE_SONG_META = gql`
-  mutation UpdateSongContent($id: Int!, $title: String!, $artist: String!) {
-    updateSongMeta(id: $id, title: $title, artist: $artist)
+  mutation UpdateSongContent($id: Int!, $title: String!, $artist: String!, $albumArtUrl: String) {
+    updateSongMeta(id: $id, title: $title, artist: $artist, albumArtUrl: $albumArtUrl)
   }
 `;
 
@@ -96,11 +98,20 @@ export default function useSong(id: number) {
     });
   };
 
-  const saveSongMeta = async (title?: string, artists?: string[]) => {
+  const saveSongMeta = async (
+    title: string | null,
+    artists: string[] | null,
+    albumArtUrl: string | null
+  ) => {
     if (!id) return;
     console.log(`save song meta data: '${id}', '${title}', '${artists}'`);
     await updateSongMeta({
-      variables: { id, title: title ?? "", artist: artists?.join(", ") ?? "" },
+      variables: {
+        id,
+        title: title ?? "",
+        artist: artists?.join(", ") ?? "",
+        albumArtUrl: albumArtUrl,
+      },
       refetchQueries: [{ query: GET_SONG, variables: { id } }],
     });
   };

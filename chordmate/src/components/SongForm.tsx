@@ -13,7 +13,7 @@ interface AddSongData {
   addSong: number;
 }
 
-interface AddSongVars {}
+type AddSongVars = object;
 
 export default function SongForm() {
   const [addSong] = useMutation<AddSongData, AddSongVars>(ADD_SONG, {

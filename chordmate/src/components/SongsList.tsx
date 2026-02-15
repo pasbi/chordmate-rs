@@ -81,7 +81,13 @@ export default function SongsList() {
                 className="border-b hover:bg-gray-50 dark:hover:bg-blue-900"
                 onClick={() => navigate(`${song.id}`)}
               >
-                <td>🎵</td>
+                <td>
+                  <img
+                    className="w-16"
+                    src={song.albumArtUrl ?? undefined}
+                    alt={song.albumArtUrl ?? "/"}
+                  ></img>
+                </td>
                 <td className="p-2">{song.title}</td>
                 <td className="p-2">{song.artist}</td>
                 <td className="p-2">{song.id}</td>

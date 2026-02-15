@@ -7,6 +7,7 @@ export const GET_SONGS = gql`
       title
       artist
       spotifyTrack
+      albumArtUrl
     }
   }
 `;

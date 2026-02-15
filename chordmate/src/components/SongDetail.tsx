@@ -30,7 +30,11 @@ export default function SongDetail() {
   const trackInfo = useTrackInfo(song?.spotifyTrack ?? "", accessToken);
   const [editMode, setEditMode] = useState(false);
   const saveCurrentTrackMeta = useCallback(() => {
-    saveSongMeta(trackInfo?.title, trackInfo?.artists);
+    saveSongMeta(
+      trackInfo?.title ?? null,
+      trackInfo?.artists ?? null,
+      trackInfo?.albumArtUrl ?? null
+    );
   }, [trackInfo, saveSongMeta]);
 
   useEffect(() => {
@@ -60,11 +64,7 @@ export default function SongDetail() {
   );
 
   const albumArt = (
-    <img
-      className="rounded"
-      src={trackInfo?.albumArtUrl ?? undefined}
-      alt="Album Art"
-    />
+    <img className="rounded" src={trackInfo?.albumArtUrl ?? undefined} alt="Album Art" />
   );
 
   const editButtons = editMode && (
