@@ -54,8 +54,6 @@ export default function SpotifySearch({ onClose }: { onClose: () => void }) {
   >(SPOTIFY_SEARCH_TRACKS);
   const debouncedQuery = useDebounce(query, 500);
   const location = useLocation();
-  const urlSearchParams = new URLSearchParams(location.search);
-  const initialSearch = useRef(urlSearchParams.get("init") === "true");
 
   // Auto-run search for initial suggestion
   useEffect(() => {
@@ -85,9 +83,6 @@ export default function SpotifySearch({ onClose }: { onClose: () => void }) {
       return;
     }
     saveTrack(track.id);
-    if (initialSearch.current) {
-      saveSongMeta(track.name, track.artists);
-    }
   }
 
   return (

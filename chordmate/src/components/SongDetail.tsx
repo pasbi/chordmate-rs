@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import Editor from "../components/Editor";
 import SpotifyPlayer from "./SpotifyPlayer";
@@ -8,6 +8,16 @@ import { useAccessToken } from "../hooks/useAccessToken";
 import SpotifySearch from "./SpotifySearch.tsx";
 import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog.tsx";
 import Button from "./Button.tsx";
+import type Song from "../types/Song.ts";
+
+function isNewSong(song?: Song) {
+  if (!song) {
+    return false;
+  }
+  const hasLabel = ((song?.artist ?? "") + (song?.title ?? "")).trim().length > 0;
+  const hasSpotifyTrack = (song?.spotifyTrack?.length ?? 0) > 0;
+  return !hasLabel || !hasSpotifyTrack;
+}
 
 export default function SongDetail() {
   const { id: idString } = useParams<{ id: string }>();
@@ -19,23 +29,31 @@ export default function SongDetail() {
   const accessToken = useAccessToken();
   const trackInfo = useTrackInfo(song?.spotifyTrack ?? "", accessToken);
   const [editMode, setEditMode] = useState(false);
-  const urlSearchParams = new URLSearchParams(location.search);
-  const [initial, setInitial] = useState<boolean>(urlSearchParams.get("init") === "true");
+  const saveCurrentTrackMeta = useCallback(() => {
+    saveSongMeta(trackInfo?.title, trackInfo?.artists);
+  }, [trackInfo, saveSongMeta]);
 
   useEffect(() => {
-    const songHasLabel = ((song?.artist ?? "") + (song?.title ?? "")).trim().length > 0;
     queueMicrotask(() => {
-      if (initial) {
+      if (isNewSong(song)) {
         setSearchOpen(true);
-        setInitial(false);
+        setEditMode(true);
+      } else {
+        setEditMode(false);
       }
-      setEditMode(!songHasLabel);
     });
-  }, [song, initial]);
+  }, [song]);
 
   if (loading) return <p>Loading...</p>;
   if (error) return <p>Error: {error.message}</p>;
   if (!song) return <p>Song not found</p>;
+
+  const onCloseSearch = () => {
+    setSearchOpen(false);
+    if (isNewSong(song)) {
+      saveCurrentTrackMeta();
+    }
+  };
 
   return (
     <div className="flex flex-col h-full gap-4 p-4">
@@ -53,10 +71,7 @@ export default function SongDetail() {
             <Button variant="primary" onClick={() => setSearchOpen(true)}>
               Link Spotify Track
             </Button>
-            <Button
-              variant="primary"
-              onClick={() => saveSongMeta(trackInfo?.title, trackInfo?.artists)}
-            >
+            <Button variant="primary" onClick={saveCurrentTrackMeta}>
               Use Track Info
             </Button>
             <Button variant="primary" onClick={() => saveContent(editorContent)}>
@@ -72,7 +87,7 @@ export default function SongDetail() {
         <Editor content={song?.content ?? ""} onUpdate={setEditorContent} editable={editMode} />
       </div>
 
-      {searchOpen && <SpotifySearch onClose={() => setSearchOpen(false)} />}
+      {searchOpen && <SpotifySearch onClose={onCloseSearch} />}
       {confirmDeleteOpen && <ConfirmDeleteDialog onClose={() => setConfirmDeleteOpen(false)} />}
     </div>
   );
