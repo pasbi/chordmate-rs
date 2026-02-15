@@ -161,14 +161,6 @@ export default function SpotifyPlayer({ trackId, folded }: { trackId: string; fo
       className={`bg-gray-100 dark:bg-gray-800 rounded-lg p-4 flex flex-col gap-4 transition-all duration-300`}
     >
       <div className="flex gap-4">
-        {!folded && (
-          <img
-            className="w-32 h-32 rounded object-cover shrink-0"
-            src={trackInfo?.albumArtUrl ?? undefined}
-            alt="Album Art"
-          />
-        )}
-
         <div className="flex-1 flex flex-col justify-between">
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-700 dark:text-gray-300">

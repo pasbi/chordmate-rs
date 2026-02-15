@@ -46,7 +46,7 @@ async function handleError(error: unknown, currentPath: string) {
 
 export default function SpotifySearch({ onClose }: { onClose: () => void }) {
   const { id } = useParams();
-  const { song, saveTrack, saveSongMeta } = useSong(parseInt(id!));
+  const { song, saveTrack } = useSong(parseInt(id!));
   const [query, setQuery] = useState(songLabel(song));
   const [search, { data, loading, error }] = useLazyQuery<
     SearchSpotifyTracksData,

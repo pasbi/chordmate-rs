@@ -55,37 +55,64 @@ export default function SongDetail() {
     }
   };
 
+  const songContent = (
+    <Editor content={song?.content ?? ""} onUpdate={setEditorContent} editable={editMode} />
+  );
+
+  const albumArt = (
+    <img
+      className="rounded"
+      src={trackInfo?.albumArtUrl ?? undefined}
+      alt="Album Art"
+    />
+  );
+
+  const editButtons = editMode && (
+    <div className="flex flex-wrap gap-2">
+      <Button variant="primary" onClick={() => setSearchOpen(true)}>
+        Link Spotify Track
+      </Button>
+      <Button variant="primary" onClick={saveCurrentTrackMeta}>
+        Use Track Info
+      </Button>
+      <Button variant="primary" onClick={() => saveContent(editorContent)}>
+        Save
+      </Button>
+      <Button variant="primary" onClick={() => setConfirmDeleteOpen(true)}>
+        Delete
+      </Button>
+    </div>
+  );
+
+  const header = (
+    <div onClick={() => setEditMode(!editMode)}>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+        {editMode && "Editing: "}
+        {song.title}
+      </h1>
+      <p className="text-gray-700 dark:text-gray-300">{song.artist}</p>
+    </div>
+  );
+
+  const controls = (
+    <div className="flex flex-col gap-2">
+      {header}
+      <SpotifyPlayer trackId={song.spotifyTrack} folded={!editMode} />
+      {editButtons}
+    </div>
+  );
+
+  const sideBar = (
+    <div className="flex flex-row md:flex-col gap-4">
+      <div className="flex-auto">{controls}</div>
+      <div className="flex-1">{albumArt}</div>
+    </div>
+  );
+
   return (
     <div className="flex flex-col md:flex-row h-full gap-4 p-4">
-      <div className="sticky">
-        <div onClick={() => setEditMode(!editMode)}>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-            {editMode && "Editing: "}
-            {song.title}
-          </h1>
-          <p className="text-gray-700 dark:text-gray-300">{song.artist}</p>
-        </div>
-        <SpotifyPlayer trackId={song.spotifyTrack} folded={!editMode} />
-        {editMode && (
-          <div className="flex flex-wrap gap-2">
-            <Button variant="primary" onClick={() => setSearchOpen(true)}>
-              Link Spotify Track
-            </Button>
-            <Button variant="primary" onClick={saveCurrentTrackMeta}>
-              Use Track Info
-            </Button>
-            <Button variant="primary" onClick={() => saveContent(editorContent)}>
-              Save
-            </Button>
-            <Button variant="primary" onClick={() => setConfirmDeleteOpen(true)}>
-              Delete
-            </Button>
-          </div>
-        )}
-      </div>
-      <div className="flex-1 overflow-auto border rounded">
-        <Editor content={song?.content ?? ""} onUpdate={setEditorContent} editable={editMode} />
-      </div>
+      <div className="flex-auto md:max-w-1/3 md:overflow-auto">{sideBar}</div>
+      <div className="flex-auto overflow-auto border rounded">{songContent}</div>
 
       {searchOpen && <SpotifySearch onClose={onCloseSearch} />}
       {confirmDeleteOpen && <ConfirmDeleteDialog onClose={() => setConfirmDeleteOpen(false)} />}
