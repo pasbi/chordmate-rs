@@ -56,7 +56,7 @@ export default function SongDetail() {
   };
 
   return (
-    <div className="flex flex-col h-full gap-4 p-4">
+    <div className="flex flex-col md:flex-row h-full gap-4 p-4">
       <div className="sticky">
         <div onClick={() => setEditMode(!editMode)}>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
