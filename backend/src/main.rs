@@ -121,9 +121,14 @@ fn router(query: QLQuery, mutation: QLMutation, spotify_client: Arc<SpotifyClien
 }
 
 async fn serve(database_connection_pool: Pool, port: u16) {
-    let listener = TcpListener::bind(format!("0.0.0.0:{}", port))
-        .await
-        .expect("Failed to start TCP listener.");
+    let addr = format!("0.0.0.0:{}", port);
+    let listener = TcpListener::bind(addr.clone()).await;
+
+    if let Err(e) = listener {
+        eprintln!("Failed to start TCP listener on {}: {}", addr, e);
+        return;
+    }
+    let listener = listener.unwrap();
 
     println!("listening on http://{}", listener.local_addr().unwrap());
     let spotify_client = Arc::new(SpotifyClient::new());
