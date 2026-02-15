@@ -9,6 +9,7 @@ import SpotifySearch from "./SpotifySearch.tsx";
 import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog.tsx";
 import Button from "./Button.tsx";
 import type Song from "../types/Song.ts";
+import { Metronome } from "./Metronome.tsx";
 
 function isNewSong(song?: Song) {
   if (!song) {
@@ -105,6 +106,9 @@ export default function SongDetail() {
   const sideBar = (
     <div className="flex flex-row md:flex-col gap-4">
       <div className="flex-auto">{controls}</div>
+      <div className="flex-1">
+        <Metronome />
+      </div>
       <div className="flex-1">{albumArt}</div>
     </div>
   );
