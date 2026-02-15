@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import Editor from "../components/Editor";
 import SpotifyPlayer from "./SpotifyPlayer";
@@ -19,11 +19,19 @@ export default function SongDetail() {
   const accessToken = useAccessToken();
   const trackInfo = useTrackInfo(song?.spotifyTrack ?? "", accessToken);
   const [editMode, setEditMode] = useState(false);
+  const urlSearchParams = new URLSearchParams(location.search);
+  const [initial, setInitial] = useState<boolean>(urlSearchParams.get("init") === "true");
 
   useEffect(() => {
     const songHasLabel = ((song?.artist ?? "") + (song?.title ?? "")).trim().length > 0;
-    queueMicrotask(() => setEditMode(!songHasLabel));
-  }, [song]);
+    queueMicrotask(() => {
+      if (initial) {
+        setSearchOpen(true);
+        setInitial(false);
+      }
+      setEditMode(!songHasLabel);
+    });
+  }, [song, initial]);
 
   if (loading) return <p>Loading...</p>;
   if (error) return <p>Error: {error.message}</p>;
