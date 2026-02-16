@@ -43,7 +43,6 @@ export default function SongDetail() {
       trackInfo?.albumArtUrl ?? null,
       metronomeRef?.current?.getBpm() ?? null
     );
-    console.log(`BPM=${trackInfo?.bpm}`);
   }, [trackInfo, saveSongMeta]);
 
   useEffect(() => {

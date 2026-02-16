@@ -2,7 +2,6 @@ import { useAccessToken } from "../hooks/useAccessToken";
 import { useSpotifyPlayer } from "../hooks/useSpotifyPlayer";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { SpotifyPlaybackState } from "../types/global";
-import useTrackInfo from "../hooks/useTrackInfo";
 
 type Milliseconds = number & { readonly __unit: "ms" };
 type Seconds = number & { readonly __unit: "s" };
