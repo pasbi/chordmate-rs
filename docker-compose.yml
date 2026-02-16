@@ -1,3 +1,24 @@
+# Commands:
+# docker compose --profile dev up     # Start dev database + pgadmin, requires the back- and front-end to be run manually:
+#                                          cargo run --package chordmate --bin chordmate -- --db-host ...
+#                                          npm run dev  # tells you where to open your browser
+# docker compose --profile prod up    # Start production all-in-one, find the app at `http://localhost:8080`.
+
+x-database-base: &database-base
+    image: 'docker.io/postgres:latest'
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      retries: 5
+    environment:
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+    volumes:
+      - pg-data:/var/lib/postgresql
+    networks:
+      internal:
+        aliases:
+          - database
+
 services:
   backend:
     build:
@@ -6,7 +27,7 @@ services:
     env_file:
       - backend/.env
     depends_on:
-      database:
+      database-prod:
         condition: service_healthy
     ports:
       - "3000:3000"
@@ -19,17 +40,22 @@ services:
       "--port", "3000",
       "--log-level", "info",
     ]
+    profiles:
+      - "prod"
+    networks:
+      internal:
 
-  database:
-    image: 'docker.io/postgres:latest'
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres"]
-      interval: 5s
-      retries: 5
-    environment:
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
-    volumes:
-      - pg-data:/var/lib/postgresql
+  database-dev:
+    <<: *database-base
+    ports:
+      - "5432:5432"  # only required to connect backends from outside to the database
+    profiles:
+      - "dev"
+
+  database-prod:
+    <<: *database-base
+    profiles:
+      - "prod"
 
   pgadmin:
     image: 'docker.io/dpage/pgadmin4:latest'
@@ -38,8 +64,15 @@ services:
       PGADMIN_DEFAULT_PASSWORD: "${PGADMIN_DEFAULT_PASSWORD}"
     ports:
       - 15080:80
+    depends_on:
+      database-dev:
+        condition: service_healthy
     volumes:
       - pgadmin-data:/var/lib/pgadmin/
+    profiles:
+      - "dev"
+    networks:
+      internal:
 
   frontend:
     build:
@@ -49,7 +82,14 @@ services:
       - "8080:80"
     depends_on:
       - backend
+    profiles:
+      - "prod"
+    networks:
+      internal:
 
 volumes:
   pg-data:
   pgadmin-data:
+
+networks:
+  internal:
