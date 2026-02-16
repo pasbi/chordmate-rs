@@ -106,7 +106,7 @@ export default function SongDetail() {
   const controls = (
     <div className="flex flex-col gap-2">
       {header}
-      <SpotifyPlayer trackId={song.spotifyTrack} folded={!editMode} />
+      <SpotifyPlayer trackId={song.spotifyTrack} enableShortcuts={!editMode} />
       {editButtons}
     </div>
   );

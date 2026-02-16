@@ -25,7 +25,13 @@ function trackIdToUri(trackId: string) {
   return `spotify:track/${trackId}`;
 }
 
-export default function SpotifyPlayer({ trackId, folded }: { trackId: string; folded: boolean }) {
+export default function SpotifyPlayer({
+  trackId,
+  enableShortcuts,
+}: {
+  trackId: string;
+  enableShortcuts: boolean;
+}) {
   const accessToken = useAccessToken();
   const { player, deviceId } = useSpotifyPlayer(accessToken, trackIdToUri(trackId));
   const [paused, setPaused] = useState(true);
@@ -127,8 +133,6 @@ export default function SpotifyPlayer({ trackId, folded }: { trackId: string; fo
     }
   };
 
-  const trackInfo = useTrackInfo(trackId, accessToken);
-
   const seek = useCallback(
     (delta: Seconds) => {
       player?.seek(position + delta * 1000);
@@ -138,6 +142,9 @@ export default function SpotifyPlayer({ trackId, folded }: { trackId: string; fo
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (!enableShortcuts) {
+        return;
+      }
       switch (e.key) {
         case " ":
           togglePlay();
@@ -153,7 +160,7 @@ export default function SpotifyPlayer({ trackId, folded }: { trackId: string; fo
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [togglePlay, seek]);
+  }, [enableShortcuts, togglePlay, seek]);
 
   function seekStart() {
     player?.seek(0);
@@ -246,12 +253,6 @@ export default function SpotifyPlayer({ trackId, folded }: { trackId: string; fo
               Volume
             </button>
           </div>
-
-          {!folded && (
-            <span className="text-sm mt-2 text-gray-800 dark:text-gray-200 truncate">
-              {trackInfo?.title ?? ""} — {trackInfo?.artists?.join(", ") ?? ""}
-            </span>
-          )}
         </div>
       </div>
 
