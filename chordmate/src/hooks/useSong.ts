@@ -39,6 +39,16 @@ interface UpdateSongTrackData {
 //  - auto scroll
 //  - focus the search block
 //  - space toggle start/pause even in spotifysearch
+//  - implement auto scroll
+//  - close search window after accepting a song
+//  - allow "Into", "Verse", "x[0-9]+" in chord lines
+//  - save song content on leaving edit mode
+//  - spotify connection breaks after some idle time and can only be fixed by restarting the back-end
+//  - new songs should appear in edit-mode
+//  - make it easier to paste content
+//  - implement a way to dump the database
+//  - B7sus2 is a valid chord
+//  - migrate this list to issues
 
 interface UpdateSongTrackVars {
   id: number;
