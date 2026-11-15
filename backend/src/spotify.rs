@@ -1,4 +1,4 @@
-use crate::spotify::TokenError::Missing;
+use crate::database_connection::DatabaseConnection;
 use juniper::{graphql_value, FieldError, FieldResult};
 use log::info;
 use reqwest::Client;
@@ -8,24 +8,33 @@ use std::env;
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
 
+/// Access tokens are treated as expired this long before Spotify says they expire.
+const EXPIRY_MARGIN: Duration = Duration::from_secs(60);
+
 #[derive(Deserialize)]
 struct TokenResponse {
     access_token: String,
-    refresh_token: String,
-    token_type: String,
+    /// Spotify does not always return a new refresh token when refreshing.
+    /// In that case, the previous one stays valid.
+    refresh_token: Option<String>,
     expires_in: u64,
-    scope: String,
 }
 
 struct StoredToken {
     access_token: String,
     refresh_token: String,
-    token_type: String,
     expires_at: Instant,
-    scope: String,
 }
+
+impl StoredToken {
+    fn is_expired(&self) -> bool {
+        self.expires_at <= Instant::now()
+    }
+}
+
 pub struct SpotifyClient {
     token_cache: Mutex<Option<StoredToken>>,
+    database_connection: DatabaseConnection,
     client_id: String,
     client_secret: String,
     redirect_uri: String,
@@ -58,16 +67,20 @@ impl From<TokenError> for FieldError {
     }
 }
 
+fn required_env_var(name: &str) -> String {
+    env::var(name).unwrap_or_else(|_| panic!("{name} is not set."))
+}
+
 impl SpotifyClient {
-    pub fn new() -> Self {
+    pub fn new(database_connection: DatabaseConnection) -> Self {
         let client = SpotifyClient {
             token_cache: Mutex::new(None),
-            client_id: env::var("SPOTIFY_CLIENT_ID").expect("SPOTIFY_CLIENT_ID is not set."),
-            client_secret: env::var("SPOTIFY_CLIENT_SECRET")
-                .expect("SPOTIFY_CLIENT_ID is not set."),
-            redirect_uri: env::var("SPOTIFY_REDIRECT_URI").expect("SPOTIFY_CLIENT_ID is not set."),
+            database_connection,
+            client_id: required_env_var("SPOTIFY_CLIENT_ID"),
+            client_secret: required_env_var("SPOTIFY_CLIENT_SECRET"),
+            redirect_uri: required_env_var("SPOTIFY_REDIRECT_URI"),
         };
-        info!("Spotify: Create new client with id ${}", client.client_id);
+        info!("Spotify: Create new client with id {}", client.client_id);
         client
     }
 
@@ -81,18 +94,11 @@ impl SpotifyClient {
         self.redirect_uri.as_ref()
     }
 
-    pub async fn exchange_code_for_token(&self, code: &str) -> Result<bool, TokenError> {
-        info!("Spotify: exchange code for token");
-        let params = [
-            ("grant_type", "authorization_code"),
-            ("code", code),
-            ("redirect_uri", self.redirect_uri()),
-            ("client_id", self.client_id()),
-            ("client_secret", self.client_secret()),
-        ];
+    /// Posts `params` to Spotify's token endpoint.
+    async fn request_token(&self, params: &[(&str, &str)]) -> Result<TokenResponse, TokenError> {
         let resp = Client::new()
             .post("https://accounts.spotify.com/api/token")
-            .form(&params)
+            .form(params)
             .send()
             .await
             .map_err(|e| TokenError::FailedToGet(e.to_string()))?;
@@ -103,102 +109,119 @@ impl SpotifyClient {
             .map_err(|e| TokenError::FailedToGet(e.to_string()))?;
 
         if !status.is_success() {
-            return if let Ok(err) = serde_json::from_str::<TokenErrorResponse>(&text) {
-                return Err(TokenError::FailedToGet(format!(
-                    "{}: {}",
-                    err.error, err.error_description
-                )));
-            } else {
-                Err(TokenError::FailedToGet(text))
-            };
+            return Err(TokenError::FailedToGet(
+                match serde_json::from_str::<TokenErrorResponse>(&text) {
+                    Ok(err) => format!("{}: {}", err.error, err.error_description),
+                    Err(_) => text,
+                },
+            ));
         }
 
-        let resp: TokenResponse = serde_json::from_str(&text).map_err(|e| {
-            TokenError::FailedToGet(format!(
-                "Failed to parse {} into TokenResponse: {}",
-                text,
-                e.to_string()
-            ))
-        })?;
-        let mut guard = self.token_cache.lock().await;
-        info!("got access token: {}", resp.access_token);
-        info!("got refresh token: {}", resp.refresh_token);
-        info!("token type {}", resp.token_type);
-        let expires_at = Instant::now() + Duration::from_secs(resp.expires_in);
-        info!(
-            "expires in {}s (at {:?}) (minus margin)",
-            resp.expires_in, expires_at
-        );
-        *guard = Some(StoredToken {
-            token_type: resp.token_type,
-            access_token: resp.access_token,
-            refresh_token: resp.refresh_token,
-            expires_at: expires_at - Duration::from_secs(60),
-            scope: resp.scope,
-        });
-
-        Ok(true)
+        serde_json::from_str(&text).map_err(|e| {
+            TokenError::FailedToGet(format!("Failed to parse token response: {e}"))
+        })
     }
 
-    async fn refresh_access_token(&self) -> Result<String, TokenError> {
-        info!("refresh access token");
-        let refresh_token = self.get_refresh_token().await?;
-        let params = [
-            ("grant_type", "refresh_token"),
-            ("refresh_token", refresh_token.as_str()),
-            ("client_id", self.client_id()),
-            ("client_secret", self.client_secret()),
-        ];
+    pub async fn exchange_code_for_token(&self, code: &str) -> Result<(), TokenError> {
+        info!("Spotify: exchange code for token");
+        let resp = self
+            .request_token(&[
+                ("grant_type", "authorization_code"),
+                ("code", code),
+                ("redirect_uri", self.redirect_uri()),
+                ("client_id", self.client_id()),
+                ("client_secret", self.client_secret()),
+            ])
+            .await?;
+        let refresh_token = resp.refresh_token.ok_or_else(|| {
+            TokenError::FailedToGet(String::from("Authorization returned no refresh token."))
+        })?;
+        self.save_refresh_token(&refresh_token).await?;
+        *self.token_cache.lock().await = Some(StoredToken {
+            access_token: resp.access_token,
+            refresh_token,
+            expires_at: Instant::now() + Duration::from_secs(resp.expires_in) - EXPIRY_MARGIN,
+        });
+        Ok(())
+    }
 
-        info!("refresh access token2");
-        let resp = Client::new()
-            .post("https://accounts.spotify.com/api/token")
-            .form(&params)
-            .send()
-            .await
-            .map_err(|e| TokenError::FailedToGet(e.to_string()))?
-            .json::<TokenResponse>()
+    /// Replaces the expired access token in `token` with a fresh one.
+    async fn refresh(&self, token: &mut StoredToken) -> Result<(), TokenError> {
+        info!("Spotify: refresh access token");
+        let resp = self
+            .request_token(&[
+                ("grant_type", "refresh_token"),
+                ("refresh_token", token.refresh_token.as_str()),
+                ("client_id", self.client_id()),
+                ("client_secret", self.client_secret()),
+            ])
+            .await?;
+        if let Some(refresh_token) = resp.refresh_token {
+            self.save_refresh_token(&refresh_token).await?;
+            token.refresh_token = refresh_token;
+        }
+        token.access_token = resp.access_token;
+        token.expires_at = Instant::now() + Duration::from_secs(resp.expires_in) - EXPIRY_MARGIN;
+        Ok(())
+    }
+
+    /// Returns a valid access token, refreshing it if necessary.
+    /// After a restart, the refresh token is loaded from the database.
+    /// The lock is held while refreshing so that concurrent requests trigger only one refresh.
+    pub async fn access_token(&self) -> Result<String, TokenError> {
+        let mut cache = self.token_cache.lock().await;
+        if cache.is_none() {
+            *cache = self.load_token().await?;
+        }
+        let token = cache.as_mut().ok_or(TokenError::Missing)?;
+        if token.is_expired() {
+            self.refresh(token).await.inspect_err(|err| {
+                info!("Spotify: refreshing access token failed: {err:?}");
+            })?;
+        }
+        Ok(token.access_token.clone())
+    }
+
+    pub async fn access_token_expires_in(&self) -> Duration {
+        match &*self.token_cache.lock().await {
+            Some(token) => token.expires_at.saturating_duration_since(Instant::now()),
+            None => Duration::ZERO,
+        }
+    }
+
+    /// Loads the stored refresh token. The returned access token is expired and must be refreshed.
+    async fn load_token(&self) -> Result<Option<StoredToken>, TokenError> {
+        let client = self
+            .database_connection
+            .get()
             .await
             .map_err(|e| TokenError::FailedToGet(e.to_string()))?;
-
-        Ok(resp.access_token)
-    }
-
-    pub async fn access_token(&self) -> Result<String, TokenError> {
-        {
-            let guard = self.token_cache.lock().await;
-            if let Some(token) = &*guard {
-                if token.expires_at > Instant::now() {
-                    info!("returning cached access_token: {}", token.access_token);
-                    return Ok(token.access_token.clone());
-                } else {
-                    info!("Access token is expired.");
-                }
-            } else {
-                return Err(Missing);
-            }
-        }
-        let access_token = self.refresh_access_token().await.map_err(|err| {
-            info!("Refreshing access token failed, {:?}", err);
-            err
-        })?;
-
-        self.token_cache
-            .lock()
+        let row = client
+            .query_opt("SELECT refresh_token FROM spotify_token WHERE id = 1", &[])
             .await
-            .as_mut()
-            .expect("Token cache not available")
-            .access_token = access_token.clone();
-        info!("returning refreshed access_token ...");
-        Ok(access_token)
+            .map_err(|e| TokenError::FailedToGet(e.to_string()))?;
+        Ok(row.map(|row| StoredToken {
+            access_token: String::new(),
+            refresh_token: row.get("refresh_token"),
+            expires_at: Instant::now(),
+        }))
     }
 
-    async fn get_refresh_token(&self) -> Result<String, TokenError> {
-        let guard = self.token_cache.lock().await;
-        match &*guard {
-            Some(token) => Ok(token.refresh_token.clone()),
-            _ => Err(TokenError::Missing),
-        }
+    async fn save_refresh_token(&self, refresh_token: &str) -> Result<(), TokenError> {
+        let client = self
+            .database_connection
+            .get()
+            .await
+            .map_err(|e| TokenError::FailedToGet(e.to_string()))?;
+        client
+            .execute(
+                "INSERT INTO spotify_token (id, refresh_token) VALUES (1, $1) \
+                 ON CONFLICT (id) DO UPDATE SET refresh_token = EXCLUDED.refresh_token",
+                &[&refresh_token],
+            )
+            .await
+            .map_err(|e| TokenError::FailedToGet(e.to_string()))?;
+        Ok(())
     }
 
     pub async fn search_tracks(&self, query: &str) -> FieldResult<Value> {
@@ -227,14 +250,5 @@ impl SpotifyClient {
         }
 
         Ok(res.json().await?)
-    }
-
-    pub async fn access_token_expires_in(&self) -> Duration {
-        let guard = self.token_cache.lock().await;
-        if let Some(guard) = &*guard {
-            guard.expires_at - Instant::now()
-        } else {
-            Duration::from_secs(0)
-        }
     }
 }

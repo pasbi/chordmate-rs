@@ -46,13 +46,21 @@ PGADMIN_DEFAULT_PASSWORD=...
 
 The backend needs Spotify app credentials. Create an app in the
 [Spotify developer dashboard](https://developer.spotify.com/dashboard) and add
-the backend's `/callback` URL as a redirect URI.
+the backend's `/callback` URL as a redirect URI. Spotify accepts plain HTTP only
+for loopback IP addresses, and rejects `localhost`, so use `127.0.0.1`:
 
 ```
 SPOTIFY_CLIENT_ID=...
 SPOTIFY_CLIENT_SECRET=...
-SPOTIFY_REDIRECT_URI=http://localhost:3000/callback
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:3000/callback
 ```
+
+### Spotify login
+
+The backend holds a single Spotify login that all devices share. Log in once
+from a browser on the machine running the backend; other devices on the
+network then pick up the token automatically. The refresh token is stored in
+the database, so the login survives backend restarts.
 
 Database settings are passed as command-line flags or environment variables:
 
@@ -93,6 +101,8 @@ Requirements: Docker (with compose), Rust, and Node.js 20 (see `chordmate/.nvmrc
    ```bash
    cd chordmate && npm install && npm run dev
    ```
+
+   To open the app from other devices on the network, run `npm run dev -- --host`.
 
 ### Frontend scripts
 

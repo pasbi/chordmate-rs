@@ -131,7 +131,9 @@ async fn serve(database_connection_pool: Pool, port: u16) {
     let listener = listener.unwrap();
 
     println!("listening on http://{}", listener.local_addr().unwrap());
-    let spotify_client = Arc::new(SpotifyClient::new());
+    let spotify_client = Arc::new(SpotifyClient::new(DatabaseConnection {
+        connection_pool: database_connection_pool.clone(),
+    }));
 
     axum::serve(
         listener,

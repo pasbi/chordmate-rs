@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import startSpotifyOauthFlow from "../spotifyoauth";
+import startSpotifyOauthFlow, { isOnServerMachine } from "../spotifyoauth";
 
 interface TokenResponse {
   accessToken: string;
@@ -19,9 +19,12 @@ export function useAccessToken() {
       const data: TokenResponse = await res.json();
       console.log(JSON.stringify(data));
       if (data.accessToken === null) {
-        console.log("No Access token. Start OAuth flow...");
-        await startSpotifyOauthFlow(window.location.href);
-        console.log("Finished OAuth flow.");
+        if (isOnServerMachine()) {
+          await startSpotifyOauthFlow(window.location.href);
+          return;
+        }
+        // Other devices wait until someone logs in on the server machine.
+        timeoutRef.current = setTimeout(fetchToken, 10000);
         return;
       }
 
