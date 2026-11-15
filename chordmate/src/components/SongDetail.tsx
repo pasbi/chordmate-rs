@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import Editor from "../components/Editor";
+import Editor, { type EditorHandle } from "../components/Editor";
 import SpotifyPlayer from "./SpotifyPlayer";
 import useSong from "../hooks/useSong";
 import useTrackInfo from "../hooks/useTrackInfo";
@@ -10,6 +10,12 @@ import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog.tsx";
 import Button from "./Button.tsx";
 import type Song from "../types/Song.ts";
 import { Metronome, type MetronomeHandle } from "./Metronome.tsx";
+import { useKeepScreenOn } from "../hooks/useKeepScreenOn";
+import {
+  MAX_SHEET_FONT_SIZE,
+  MIN_SHEET_FONT_SIZE,
+  useSheetFontSize,
+} from "../hooks/useSheetFontSize";
 
 function isNewSong(song?: Song) {
   if (!song) {
@@ -20,16 +26,36 @@ function isNewSong(song?: Song) {
   return !hasLabel || !hasSpotifyTrack;
 }
 
+/** Asks the browser to confirm before closing or reloading the page while `active`. */
+function useWarnBeforeUnload(active: boolean) {
+  useEffect(() => {
+    if (!active) {
+      return;
+    }
+    const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [active]);
+}
+
 export default function SongDetail() {
   const { id: idString } = useParams<{ id: string }>();
   const id = parseInt(idString!);
   const { song, loading, error, saveContent, saveSongMeta } = useSong(id);
-  const [editorContent, setEditorContent] = useState<string>("");
+  // null while the sheet has not been edited since the last save.
+  const [editedContent, setEditedContent] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const accessToken = useAccessToken();
+  const [metronomeOpen, setMetronomeOpen] = useState(false);
+  const [fontSizeOpen, setFontSizeOpen] = useState(false);
+  const { fontSize, setFontSize } = useSheetFontSize();
+  const editorRef = useRef<EditorHandle>(null);
+  const { accessToken } = useAccessToken();
   const trackInfo = useTrackInfo(song?.spotifyTrack ?? "", accessToken);
   const [editMode, setEditMode] = useState(false);
+  const hasUnsavedChanges = editedContent !== null && editedContent !== song?.content;
+  useWarnBeforeUnload(hasUnsavedChanges);
+  useKeepScreenOn(true);
 
   const metronomeRef = useRef<MetronomeHandle>(null);
   useEffect(() => {
@@ -45,20 +71,38 @@ export default function SongDetail() {
     );
   }, [trackInfo, saveSongMeta]);
 
+  // Decide on edit mode once per song, not on every refetch: saving refetches the song,
+  // and that must not end editing.
+  const initializedSongId = useRef<number | null>(null);
   useEffect(() => {
+    if (!song || initializedSongId.current === song.id) {
+      return;
+    }
+    initializedSongId.current = song.id;
+    const isNew = isNewSong(song);
     queueMicrotask(() => {
-      if (isNewSong(song)) {
-        setSearchOpen(true);
-        setEditMode(true);
-      } else {
-        setEditMode(false);
-      }
+      setSearchOpen(isNew);
+      setEditMode(isNew);
     });
   }, [song]);
 
   if (loading) return <p>Loading...</p>;
   if (error) return <p>Error: {error.message}</p>;
   if (!song) return <p>Song not found</p>;
+
+  const finishEditing = async () => {
+    if (editedContent !== null && hasUnsavedChanges) {
+      try {
+        await saveContent(editedContent);
+      } catch (err) {
+        console.error(err);
+        window.alert("Saving the song failed. Your changes are still in the editor.");
+        return;
+      }
+    }
+    setEditedContent(null);
+    setEditMode(false);
+  };
 
   const onCloseSearch = () => {
     setSearchOpen(false);
@@ -67,15 +111,89 @@ export default function SongDetail() {
     }
   };
 
-  const songContent = (
-    <Editor content={song?.content ?? ""} onUpdate={setEditorContent} editable={editMode} />
+  const albumArtUrl = song.albumArtUrl ?? trackInfo?.albumArtUrl;
+
+  const header = (
+    <div className="flex items-center gap-2 sm:gap-3">
+      {albumArtUrl && (
+        <img
+          className="w-10 h-10 sm:w-14 sm:h-14 rounded object-cover shrink-0"
+          src={albumArtUrl}
+          alt="Album art"
+        />
+      )}
+      <div className="flex-1 min-w-0">
+        <h1 className="text-lg sm:text-xl font-bold truncate text-gray-900 dark:text-gray-100">
+          {editMode && "Editing: "}
+          {song.title || "Untitled"}
+        </h1>
+        <p className="truncate text-gray-700 dark:text-gray-300">{song.artist}</p>
+      </div>
+      <Button
+        variant="secondary"
+        title="Font size"
+        aria-pressed={fontSizeOpen}
+        onClick={() => setFontSizeOpen(!fontSizeOpen)}
+      >
+        Aa
+      </Button>
+      <Button
+        variant="secondary"
+        title="Metronome"
+        aria-pressed={metronomeOpen}
+        onClick={() => setMetronomeOpen(!metronomeOpen)}
+      >
+        ♩
+      </Button>
+      {editMode ? (
+        <Button variant="success" onClick={finishEditing}>
+          {hasUnsavedChanges ? "Save & close" : "Done"}
+        </Button>
+      ) : (
+        <Button variant="primary" onClick={() => setEditMode(true)}>
+          Edit
+        </Button>
+      )}
+    </div>
   );
 
-  const albumArt = (
-    <img className="rounded" src={trackInfo?.albumArtUrl ?? undefined} alt="Album Art" />
+  const fitFontSize = () => {
+    const fitting = editorRef.current?.fittingFontSize();
+    if (fitting) {
+      setFontSize(Math.floor(fitting));
+    }
+  };
+
+  const fontSizeControls = fontSizeOpen && (
+    <div className="flex items-center gap-2">
+      <Button
+        variant="secondary"
+        title="Smaller"
+        disabled={fontSize <= MIN_SHEET_FONT_SIZE}
+        onClick={() => setFontSize(fontSize - 1)}
+      >
+        A−
+      </Button>
+      <span className="w-12 text-center tabular-nums">{fontSize}px</span>
+      <Button
+        variant="secondary"
+        title="Larger"
+        disabled={fontSize >= MAX_SHEET_FONT_SIZE}
+        onClick={() => setFontSize(fontSize + 1)}
+      >
+        A+
+      </Button>
+      <Button
+        variant="secondary"
+        title="Largest size at which the longest line fits the width"
+        onClick={fitFontSize}
+      >
+        Fit width
+      </Button>
+    </div>
   );
 
-  const editButtons = editMode && (
+  const editActions = editMode && (
     <div className="flex flex-wrap gap-2">
       <Button variant="primary" onClick={() => setSearchOpen(true)}>
         Link Spotify Track
@@ -83,47 +201,33 @@ export default function SongDetail() {
       <Button variant="primary" onClick={saveCurrentTrackMeta}>
         Use Track Info
       </Button>
-      <Button variant="primary" onClick={() => saveContent(editorContent)}>
-        Save
-      </Button>
-      <Button variant="primary" onClick={() => setConfirmDeleteOpen(true)}>
+      <Button variant="danger" onClick={() => setConfirmDeleteOpen(true)}>
         Delete
       </Button>
     </div>
   );
 
-  const header = (
-    <div onClick={() => setEditMode(!editMode)}>
-      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-        {editMode && "Editing: "}
-        {song.title}
-      </h1>
-      <p className="text-gray-700 dark:text-gray-300">{song.artist}</p>
-    </div>
-  );
-
-  const controls = (
-    <div className="flex flex-col gap-2">
-      {header}
-      <SpotifyPlayer trackId={song.spotifyTrack} enableShortcuts={!editMode} />
-      {editButtons}
-    </div>
-  );
-
-  const sideBar = (
-    <div className="flex flex-row md:flex-col gap-4">
-      <div className="flex-auto">{controls}</div>
-      <div className="flex-1">
-        <Metronome ref={metronomeRef} />
-      </div>
-      <div className="flex-1">{albumArt}</div>
-    </div>
-  );
-
   return (
-    <div className="flex flex-col md:flex-row h-full gap-4 p-4">
-      <div className="flex-auto md:max-w-1/3 md:overflow-auto">{sideBar}</div>
-      <div className="flex-1 min-h-0">{songContent}</div>
+    <div className="flex flex-col h-full">
+      <div className="shrink-0 flex flex-col gap-2 p-2 md:p-4 border-b border-gray-200 dark:border-gray-700">
+        {header}
+        <SpotifyPlayer trackId={song.spotifyTrack} enableShortcuts={!editMode} />
+        {/* Kept mounted while hidden: the BPM is read from and written to it. */}
+        <div className={metronomeOpen ? "" : "hidden"}>
+          <Metronome ref={metronomeRef} />
+        </div>
+        {fontSizeControls}
+        {editActions}
+      </div>
+      <div className="flex-1 min-h-0 p-2 md:p-4">
+        <Editor
+          ref={editorRef}
+          content={song.content}
+          onUpdate={setEditedContent}
+          editable={editMode}
+          fontSize={fontSize}
+        />
+      </div>
 
       {searchOpen && <SpotifySearch onClose={onCloseSearch} />}
       {confirmDeleteOpen && <ConfirmDeleteDialog onClose={() => setConfirmDeleteOpen(false)} />}

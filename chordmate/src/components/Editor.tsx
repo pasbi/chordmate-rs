@@ -2,7 +2,7 @@ import { EditorContent, Extension, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Decoration, DecorationSet } from "prosemirror-view";
 import { Plugin, PluginKey, EditorState } from "prosemirror-state";
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { detectChords, detectSectionHeader } from "../lib/analyzeLine.ts";
 
 function decorations(state: EditorState) {
@@ -53,67 +53,106 @@ const ChordDecorations = Extension.create({
   },
 });
 
+/** Width of one character of `element`'s (monospace) font, relative to the font size. */
+function characterWidthRatio(element: HTMLElement) {
+  const context = document.createElement("canvas").getContext("2d");
+  if (!context) {
+    return 0.6;
+  }
+  context.font = `100px ${getComputedStyle(element).fontFamily}`;
+  return context.measureText("M").width / 100;
+}
+
+function longestLineLength(text: string) {
+  return Math.max(0, ...text.split("\n").map((line) => line.length));
+}
+
+export type EditorHandle = {
+  /** The largest font size (px) at which the longest line fits without scrolling sideways. */
+  fittingFontSize: () => number | null;
+};
+
 interface EditorProps {
   content: string;
   onUpdate?: (content: string) => void;
   editable: boolean;
+  fontSize: number;
 }
 
-export default function Editor({ content, onUpdate, editable }: EditorProps) {
-  const editor = useEditor({
-    extensions: [StarterKit, ChordDecorations],
-    content,
-    onUpdate: ({ editor }) => onUpdate?.(editor.getText()),
-    editable,
-    parseOptions: {
-      preserveWhitespace: "full",
-    },
-  });
+const Editor = forwardRef<EditorHandle, EditorProps>(
+  ({ content, onUpdate, editable, fontSize }, ref) => {
+    const editor = useEditor({
+      extensions: [StarterKit, ChordDecorations],
+      content,
+      onUpdate: ({ editor }) => onUpdate?.(editor.getText()),
+      editable,
+      parseOptions: {
+        preserveWhitespace: "full",
+      },
+    });
 
-  useEffect(() => {
-    editor.setEditable(editable);
-  }, [editor, editable]);
-  const editorScrollRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      // Ignore if user is typing text
-      const target = e.target as HTMLElement;
+    useEffect(() => {
+      editor.setEditable(editable);
+    }, [editor, editable]);
+    const editorScrollRef = useRef<HTMLDivElement>(null);
 
-      if (
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target.isContentEditable
-      ) {
-        return;
-      }
+    useImperativeHandle(
+      ref,
+      () => ({
+        fittingFontSize: () => {
+          const container = editorScrollRef.current;
+          const lineLength = longestLineLength(editor.getText());
+          if (!container || lineLength === 0) {
+            return null;
+          }
+          return container.clientWidth / (lineLength * characterWidthRatio(editor.view.dom));
+        },
+      }),
+      [editor]
+    );
 
-      if (!editorScrollRef.current) return;
+    useEffect(() => {
+      const onKeyDown = (e: KeyboardEvent) => {
+        // Ignore if user is typing text
+        const target = e.target as HTMLElement;
 
-      const SCROLL_STEP = 60;
+        if (
+          target instanceof HTMLInputElement ||
+          target instanceof HTMLTextAreaElement ||
+          target.isContentEditable
+        ) {
+          return;
+        }
 
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        editorScrollRef.current.scrollBy({ top: SCROLL_STEP });
-        console.log("DOWN");
-      }
+        if (!editorScrollRef.current) return;
 
-      if (e.key === "ArrowUp") {
-        e.preventDefault();
-        editorScrollRef.current.scrollBy({ top: -SCROLL_STEP });
-        console.log("UP");
-      }
-    };
+        const SCROLL_STEP = 60;
 
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          editorScrollRef.current.scrollBy({ top: SCROLL_STEP });
+        }
 
-  return (
-    <div ref={editorScrollRef} className="h-full overflow-auto">
-      <EditorContent
-        editor={editor}
-        className="text-current outline-none font-mono whitespace-pre"
-      />
-    </div>
-  );
-}
+        if (e.key === "ArrowUp") {
+          e.preventDefault();
+          editorScrollRef.current.scrollBy({ top: -SCROLL_STEP });
+        }
+      };
+
+      window.addEventListener("keydown", onKeyDown);
+      return () => window.removeEventListener("keydown", onKeyDown);
+    }, []);
+
+    // Lines never wrap: a wrapped lyric line would no longer line up with its chord line.
+    return (
+      <div ref={editorScrollRef} className="h-full overflow-auto" style={{ fontSize }}>
+        <EditorContent
+          editor={editor}
+          className="chord-sheet text-current outline-none font-mono"
+        />
+      </div>
+    );
+  }
+);
+
+export default Editor;

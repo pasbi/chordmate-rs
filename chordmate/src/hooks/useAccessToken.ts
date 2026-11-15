@@ -10,8 +10,17 @@ const WAIT_FOR_LOGIN_MS = 10000;
 const RETRY_AFTER_ERROR_MS = 5000;
 const REFRESH_MARGIN_MS = 5000;
 
+/**
+ * - `loading`: the first request has not completed yet.
+ * - `ready`: `accessToken` is valid.
+ * - `waitingForLogin`: nobody has logged in to Spotify on the server machine yet.
+ * - `serverUnreachable`: the last request to the backend failed; it is retried.
+ */
+export type AccessTokenStatus = "loading" | "ready" | "waitingForLogin" | "serverUnreachable";
+
 export function useAccessToken() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [status, setStatus] = useState<AccessTokenStatus>("loading");
 
   useEffect(() => {
     let timeout: number | undefined;
@@ -34,10 +43,12 @@ export function useAccessToken() {
             return;
           }
           // Other devices wait until someone logs in on the server machine.
+          setStatus("waitingForLogin");
           scheduleFetch(WAIT_FOR_LOGIN_MS);
           return;
         }
         setAccessToken(data.accessToken);
+        setStatus("ready");
         scheduleFetch(Math.max(data.expiresInSeconds * 1000 - REFRESH_MARGIN_MS, 0));
       } catch (err) {
         console.error("Failed to fetch Spotify token", err);
@@ -45,6 +56,7 @@ export function useAccessToken() {
           return;
         }
         setAccessToken(null);
+        setStatus("serverUnreachable");
         scheduleFetch(RETRY_AFTER_ERROR_MS);
       }
     }
@@ -56,5 +68,5 @@ export function useAccessToken() {
     };
   }, []);
 
-  return accessToken;
+  return { accessToken, status };
 }

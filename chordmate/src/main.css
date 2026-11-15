@@ -5,6 +5,13 @@ html, body, #root {
     margin: 0;
 }
 
+/* ProseMirror wraps lines by default; chord sheets must keep chords above their lyrics. */
+.chord-sheet .ProseMirror {
+    white-space: pre;
+    overflow-wrap: normal;
+    word-wrap: normal;
+}
+
 .chord-token {
     @apply text-blue-600 dark:text-blue-400 font-extrabold;
 }
