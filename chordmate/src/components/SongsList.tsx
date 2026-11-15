@@ -15,11 +15,36 @@ const SORT_FIELD_LABELS: Record<SortField, string> = {
   artist: "Artist",
 };
 
+function compareText(a: string, b: string) {
+  return a.toLowerCase().localeCompare(b.toLowerCase());
+}
+
 function compareSongs(a: Song, b: Song, field: SortField) {
-  if (field === "id") {
-    return a.id - b.id;
+  switch (field) {
+    case "id":
+      return a.id - b.id;
+    case "title":
+      return compareText(a.title, b.title);
+    case "artist":
+      // Within an artist, songs are ordered by title.
+      return compareText(a.artist, b.artist) || compareText(a.title, b.title);
   }
-  return a[field].toLowerCase().localeCompare(b[field].toLowerCase());
+}
+
+type ArtistGroup = { artist: string; songs: Song[] };
+
+/** Splits songs that are already sorted by artist into one group per artist. */
+function groupByArtist(songs: Song[]) {
+  const groups: ArtistGroup[] = [];
+  for (const song of songs) {
+    const current = groups.at(-1);
+    if (current && compareText(current.artist, song.artist) === 0) {
+      current.songs.push(song);
+    } else {
+      groups.push({ artist: song.artist, songs: [song] });
+    }
+  }
+  return groups;
 }
 
 function matchesFilter(song: Song, filter: string) {
@@ -27,7 +52,7 @@ function matchesFilter(song: Song, filter: string) {
   return [song.title, song.artist].some((value) => value.toLowerCase().includes(needle));
 }
 
-function SongRow({ song }: { song: Song }) {
+function SongRow({ song, showArtist }: { song: Song; showArtist: boolean }) {
   return (
     <li>
       <Link
@@ -41,7 +66,9 @@ function SongRow({ song }: { song: Song }) {
         )}
         <div className="flex flex-col min-w-0">
           <span className="font-medium truncate">{song.title || "Untitled"}</span>
-          <span className="text-sm truncate text-gray-600 dark:text-gray-400">{song.artist}</span>
+          {showArtist && (
+            <span className="text-sm truncate text-gray-600 dark:text-gray-400">{song.artist}</span>
+          )}
         </div>
       </Link>
     </li>
@@ -99,9 +126,20 @@ export default function SongsList() {
       </div>
 
       <ul className="flex flex-col">
-        {displayedSongs.map((song) => (
-          <SongRow key={song.id} song={song} />
-        ))}
+        {sortField === "artist"
+          ? groupByArtist(displayedSongs).map((group) => (
+              <li key={group.artist.toLowerCase()}>
+                <h2 className="px-2 pt-4 pb-1 text-sm font-semibold text-gray-600 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                  {group.artist || "Unknown artist"}
+                </h2>
+                <ul className="flex flex-col">
+                  {group.songs.map((song) => (
+                    <SongRow key={song.id} song={song} showArtist={false} />
+                  ))}
+                </ul>
+              </li>
+            ))
+          : displayedSongs.map((song) => <SongRow key={song.id} song={song} showArtist={true} />)}
       </ul>
       {displayedSongs.length === 0 && <p className="text-center py-4">No songs found</p>}
     </div>
