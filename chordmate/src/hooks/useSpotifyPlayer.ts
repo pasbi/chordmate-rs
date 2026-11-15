@@ -35,9 +35,7 @@ export function useSpotifyPlayer(accessToken: string | null, trackUri: string) {
           return;
         }
         if (canceled) {
-          console.log(
-            "Spotify Player connection canceled before the connection was established.",
-          );
+          console.log("Spotify Player connection canceled before the connection was established.");
           return;
         }
         console.log("Spotify Player connected");
@@ -55,22 +53,21 @@ export function useSpotifyPlayer(accessToken: string | null, trackUri: string) {
     };
   }, [accessToken]);
 
-  // start playback whenever we have player, deviceId, and trackUri
+  // Start playback once, when the player has connected. Neither a refreshed token nor a newly
+  // linked track restarts it.
+  const autoplayedDeviceId = useRef<string | null>(null);
   useEffect(() => {
-    console.log(`Attempt to play ${trackUri}`);
-    if (!playerRef.current || !deviceId) {
+    if (!playerRef.current || !deviceId || autoplayedDeviceId.current === deviceId) {
       return;
     }
+    autoplayedDeviceId.current = deviceId;
 
     const play = async () => {
-      const res = await fetch(
-        `https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`,
-        {
-          method: "PUT",
-          headers: { Authorization: `Bearer ${accessToken}` },
-          body: JSON.stringify({ uris: [trackUri] }),
-        },
-      );
+      const res = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ uris: [trackUri] }),
+      });
       if (res.ok) {
         console.log("Spotify Player plays.");
       } else {

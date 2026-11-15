@@ -1,49 +1,32 @@
-import { useParams } from "react-router-dom";
 import { useMutation } from "@apollo/client/react";
 import { DELETE_SONG, GET_SONGS } from "../graphql";
 import Button from "./Button.tsx";
 import { Modal } from "./Modal.tsx";
-import useSong from "../hooks/useSong.ts";
 import type Song from "../types/Song.ts";
 
-function labelSong(song?: Song) {
-  if (!song) {
-    return "Undefined Song";
-  }
-  if (song.artist.length > 0 || song.title.length > 0) {
-    return `${song.title} by ${song.artist}`;
-  }
+type SongToDelete = Pick<Song, "id" | "title" | "artist">;
 
-  const cl = song.content.length;
-  if (cl > 0) {
-    return `Song with content of length ${cl}.`;
-  }
-
-  return "Empty Song";
+function labelSong(song: SongToDelete) {
+  const title = `“${song.title || "Untitled"}”`;
+  return song.artist.length > 0 ? `${title} by ${song.artist}` : title;
 }
 
 export function ConfirmDeleteDialog({
+  song,
   onClose,
-  onDeleted,
 }: {
+  song: SongToDelete;
   onClose: () => void;
-  /** Called once the song is deleted; the caller leaves the song page. */
-  onDeleted: () => void;
 }) {
-  const { id: idString } = useParams<{ id: string }>();
-  const id = parseInt(idString!);
-
   const [deleteSong] = useMutation(DELETE_SONG);
 
   const handleConfirm = async () => {
     await deleteSong({
-      variables: { id },
+      variables: { id: song.id },
       refetchQueries: [{ query: GET_SONGS, variables: {} }],
     });
-    onDeleted();
+    onClose();
   };
-
-  const { song } = useSong(id);
 
   return (
     <Modal label="Delete song" onClose={onClose}>

@@ -6,6 +6,9 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import SongForm from "./SongForm";
 import { INPUT_CLASSES } from "./inputClasses";
+import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
+import { ContextMenu } from "./ContextMenu";
+import { useContextMenuTrigger } from "../hooks/useContextMenuTrigger";
 
 type SortField = "id" | "title" | "artist";
 
@@ -52,12 +55,25 @@ function matchesFilter(song: Song, filter: string) {
   return [song.title, song.artist].some((value) => value.toLowerCase().includes(needle));
 }
 
-function SongRow({ song, showArtist }: { song: Song; showArtist: boolean }) {
+type SongMenu = { song: Song; x: number; y: number };
+
+function SongRow({
+  song,
+  showArtist,
+  onOpenMenu,
+}: {
+  song: Song;
+  showArtist: boolean;
+  onOpenMenu: (menu: SongMenu) => void;
+}) {
+  const menuTrigger = useContextMenuTrigger((x, y) => onOpenMenu({ song, x, y }));
   return (
     <li>
+      {/* select-none and no touch callout: a long press opens our menu, not the browser's. */}
       <Link
         to={`/songs/${song.id}`}
-        className="flex items-center gap-3 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+        {...menuTrigger}
+        className="flex items-center gap-3 p-2 rounded select-none [-webkit-touch-callout:none] hover:bg-gray-100 dark:hover:bg-gray-800"
       >
         {song.albumArtUrl ? (
           <img className="w-12 h-12 rounded object-cover shrink-0" src={song.albumArtUrl} alt="" />
@@ -81,6 +97,8 @@ export default function SongsList() {
   const [filter, setFilter] = useState("");
   const [sortField, setSortField] = useState<SortField>("id");
   const [sortAscending, setSortAscending] = useState(true);
+  const [menu, setMenu] = useState<SongMenu | null>(null);
+  const [songToDelete, setSongToDelete] = useState<Song | null>(null);
 
   const displayedSongs = useMemo(() => {
     const direction = sortAscending ? 1 : -1;
@@ -134,14 +152,27 @@ export default function SongsList() {
                 </h2>
                 <ul className="flex flex-col">
                   {group.songs.map((song) => (
-                    <SongRow key={song.id} song={song} showArtist={false} />
+                    <SongRow key={song.id} song={song} showArtist={false} onOpenMenu={setMenu} />
                   ))}
                 </ul>
               </li>
             ))
-          : displayedSongs.map((song) => <SongRow key={song.id} song={song} showArtist={true} />)}
+          : displayedSongs.map((song) => (
+              <SongRow key={song.id} song={song} showArtist={true} onOpenMenu={setMenu} />
+            ))}
       </ul>
       {displayedSongs.length === 0 && <p className="text-center py-4">No songs found</p>}
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={[{ label: "Delete…", danger: true, onSelect: () => setSongToDelete(menu.song) }]}
+          onClose={() => setMenu(null)}
+        />
+      )}
+      {songToDelete && (
+        <ConfirmDeleteDialog song={songToDelete} onClose={() => setSongToDelete(null)} />
+      )}
     </div>
   );
 }

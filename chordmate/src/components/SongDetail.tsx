@@ -1,12 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { useBlocker, useNavigate, useParams } from "react-router-dom";
+import { type ReactNode, useEffect, useRef, useState } from "react";
+import { useBlocker, useParams } from "react-router-dom";
 import Editor from "../components/Editor";
 import SpotifyPlayer from "./SpotifyPlayer";
 import useSong from "../hooks/useSong";
 import useTrackInfo from "../hooks/useTrackInfo";
 import { useAccessToken } from "../hooks/useAccessToken";
 import SpotifySearch from "./SpotifySearch.tsx";
-import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog.tsx";
 import Button from "./Button.tsx";
 import type Song from "../types/Song.ts";
 import { songLabel } from "../types/Song.ts";
@@ -22,6 +21,14 @@ import {
   MIN_SHEET_FONT_SIZE,
   useSheetFontSize,
 } from "../hooks/useSheetFontSize";
+
+function PencilIcon({ className }: { className: string }) {
+  return (
+    <svg viewBox="0 0 16 16" className={className} fill="currentColor" aria-hidden="true">
+      <path d="M11.7 1.3a1 1 0 0 1 1.4 0l1.6 1.6a1 1 0 0 1 0 1.4l-8.4 8.4-3.6 1.1 1.1-3.6z" />
+    </svg>
+  );
+}
 
 function isNewSong(song?: Song) {
   if (!song) {
@@ -51,7 +58,6 @@ export default function SongDetail() {
   // null while the sheet has not been edited since the last save.
   const [editedContent, setEditedContent] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const { volume, setVolume } = usePlayerVolume();
   const { fontSize, setFontSize } = useSheetFontSize();
   const { accessToken } = useAccessToken();
@@ -59,14 +65,9 @@ export default function SongDetail() {
   const [editMode, setEditMode] = useState(false);
   const hasUnsavedChanges = editedContent !== null && editedContent !== song?.content;
   useWarnBeforeUnload(hasUnsavedChanges);
-  const navigate = useNavigate();
-  // Set when the song was deleted: there is nothing left to save, so leaving must not be blocked.
-  const songDeleted = useRef(false);
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
-      hasUnsavedChanges &&
-      !songDeleted.current &&
-      currentLocation.pathname !== nextLocation.pathname
+      hasUnsavedChanges && currentLocation.pathname !== nextLocation.pathname
   );
   useKeepScreenOn(true);
 
@@ -131,11 +132,6 @@ export default function SongDetail() {
   const selectTrack = async (track: SpotifyTrack) => {
     await saveTrack(track.id);
     await saveSongMeta(track.name, track.artists, track.albumArt ?? null, currentBpm());
-  };
-
-  const leaveDeletedSong = () => {
-    songDeleted.current = true;
-    navigate("/songs");
   };
 
   const albumArtUrl = song.albumArtUrl ?? trackInfo?.albumArtUrl;
@@ -228,6 +224,16 @@ export default function SongDetail() {
     </Popover>
   );
 
+  const songTitle = (titleSuffix: ReactNode) => (
+    <span className="block leading-tight">
+      <span className="flex items-center gap-1">
+        <span className="font-semibold truncate">{song.title || "Untitled"}</span>
+        {titleSuffix}
+      </span>
+      <span className="block text-xs truncate text-gray-600 dark:text-gray-400">{song.artist}</span>
+    </span>
+  );
+
   // Lives in the navigation bar to save vertical space; the popovers open below the bar.
   const toolbar = (
     <NavBarPortal>
@@ -239,13 +245,22 @@ export default function SongDetail() {
           alt="Album art"
         />
       )}
-      <div className="flex-1 min-w-0 leading-tight">
-        <h1 className="font-semibold truncate">
-          {editMode && "Editing: "}
-          {song.title || "Untitled"}
-        </h1>
-        <p className="text-xs truncate text-gray-600 dark:text-gray-400">{song.artist}</p>
-      </div>
+      {editMode ? (
+        // In edit mode, title and artist link a different Spotify track; there is no room for a
+        // separate button in the bar.
+        <button
+          type="button"
+          title="Change Spotify track"
+          onClick={() => setSearchOpen(true)}
+          className="flex-1 min-w-0 text-left rounded px-1 -mx-1 hover:bg-gray-100 dark:hover:bg-gray-800 focus-visible:outline-2 focus-visible:outline-blue-500"
+        >
+          {songTitle(
+            <PencilIcon className="w-3.5 h-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
+          )}
+        </button>
+      ) : (
+        <div className="flex-1 min-w-0">{songTitle(null)}</div>
+      )}
       {volumePopover}
       {fontSizePopover}
       {metronomePopover}
@@ -261,23 +276,11 @@ export default function SongDetail() {
     </NavBarPortal>
   );
 
-  const editActions = editMode && (
-    <div className="flex flex-wrap gap-2">
-      <Button variant="primary" onClick={() => setSearchOpen(true)}>
-        Link Spotify Track
-      </Button>
-      <Button variant="danger" onClick={() => setConfirmDeleteOpen(true)}>
-        Delete
-      </Button>
-    </div>
-  );
-
   return (
     <div className="flex flex-col h-full">
       {toolbar}
       <div className="shrink-0 flex flex-col gap-2 px-2 py-1.5 md:px-4 border-b border-gray-200 dark:border-gray-700">
         <SpotifyPlayer trackId={song.spotifyTrack} enableShortcuts={!editMode} volume={volume} />
-        {editActions}
       </div>
       <div className="flex-1 min-h-0 p-1 md:p-3">
         <Editor
@@ -295,18 +298,12 @@ export default function SongDetail() {
           onClose={() => setSearchOpen(false)}
         />
       )}
-      {confirmDeleteOpen && (
-        <ConfirmDeleteDialog
-          onClose={() => setConfirmDeleteOpen(false)}
-          onDeleted={leaveDeletedSong}
-        />
-      )}
       {blocker.state === "blocked" && (
         <Modal label="Unsaved changes" onClose={() => blocker.reset()}>
           <div className="p-4 flex flex-col gap-4">
             <h2 className="text-lg font-semibold">Save your changes?</h2>
             <p className="text-gray-700 dark:text-gray-300">
-              You are leaving {song.title || "this song"} with unsaved changes to the sheet.
+              You are leaving “{song.title || "Untitled"}” with unsaved changes to the sheet.
             </p>
             <div className="flex flex-wrap justify-end gap-2">
               <Button variant="secondary" onClick={() => blocker.reset()}>
@@ -315,7 +312,7 @@ export default function SongDetail() {
               <Button variant="danger" onClick={() => blocker.proceed()}>
                 Discard
               </Button>
-              <Button variant="primary" onClick={saveAndLeave}>
+              <Button variant="success" onClick={saveAndLeave}>
                 Save
               </Button>
             </div>

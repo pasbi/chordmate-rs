@@ -105,6 +105,22 @@ export default function SpotifyPlayer({
   const [paused, setPaused] = useState(true);
   const [duration, setDuration] = useState(0); // in ms
   const [position, setPosition] = useState(0); // in ms
+  // The track the player actually has loaded; differs from `trackId` after linking another track.
+  const [loadedTrackUri, setLoadedTrackUri] = useState<string | null>(null);
+  const showsLinkedTrack = loadedTrackUri === trackIdToUri(trackId);
+  const displayedPosition = showsLinkedTrack ? position : 0;
+  const displayedDuration = showsLinkedTrack ? duration : 0;
+
+  // Linking another track pauses the old one instead of playing the new one; Play then starts
+  // the new track from the beginning.
+  const previousTrackId = useRef(trackId);
+  useEffect(() => {
+    if (previousTrackId.current === trackId) {
+      return;
+    }
+    previousTrackId.current = trackId;
+    player?.pause().catch(console.error);
+  }, [player, trackId]);
 
   // While the user drags the slider, player updates must not move it back.
   const scrubbingRef = useRef(false);
@@ -147,6 +163,7 @@ export default function SpotifyPlayer({
       }
       setPaused(state.paused);
       setDuration(state.duration);
+      setLoadedTrackUri(state.track_window.current_track.uri);
       if (!scrubbingRef.current) {
         setPosition(state.position);
       }
@@ -175,7 +192,7 @@ export default function SpotifyPlayer({
           method: "PUT",
           body: JSON.stringify({
             uris: [trackIdToUri(trackId)],
-            position_ms: position,
+            position_ms: displayedPosition,
           }),
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -191,7 +208,7 @@ export default function SpotifyPlayer({
     } catch (err) {
       console.error(err);
     }
-  }, [deviceId, accessToken, paused, trackId, position]);
+  }, [deviceId, accessToken, paused, trackId, displayedPosition]);
 
   // Seeks run one after another, each relative to the player's actual position at that moment,
   // so that quickly repeated presses add up exactly.
@@ -253,19 +270,19 @@ export default function SpotifyPlayer({
       <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
         <div className="flex flex-1 basis-40 items-center gap-2">
           <span className="text-xs tabular-nums text-gray-700 dark:text-gray-300">
-            {formatTime(position as Milliseconds)}
+            {formatTime(displayedPosition as Milliseconds)}
           </span>
           <input
             className="flex-1 h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-600"
             type="range"
             aria-label="Position"
             min={0}
-            max={duration}
-            value={position}
+            max={displayedDuration}
+            value={displayedPosition}
             onChange={(e) => handleSliderChange(Number(e.target.value))}
           />
           <span className="text-xs tabular-nums text-gray-700 dark:text-gray-300">
-            {formatTime(duration as Milliseconds)}
+            {formatTime(displayedDuration as Milliseconds)}
           </span>
         </div>
 
