@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { SpotifyPlayer } from "../types/global";
 
 const SDK_URL = "https://sdk.scdn.co/spotify-player.js";
@@ -34,8 +34,16 @@ export function useSpotifyPlayer(accessToken: string | null) {
   // Without this, a player that can't start (no DRM support, no Premium, …) fails silently.
   const [error, setError] = useState<string | null>(null);
 
+  // The player asks for a token whenever it needs one, so a renewed token doesn't require a new
+  // player; recreating it would interrupt playback.
+  const latestToken = useRef(accessToken);
   useEffect(() => {
-    if (!accessToken) {
+    latestToken.current = accessToken;
+  }, [accessToken]);
+  const enabled = accessToken !== null;
+
+  useEffect(() => {
+    if (!enabled) {
       return;
     }
     let canceled = false;
@@ -44,7 +52,11 @@ export function useSpotifyPlayer(accessToken: string | null) {
     const createPlayer = async () => {
       const newPlayer = new Spotify.Player({
         name: `${CHORDMATE_PLAYER_NAME_PREFIX}${platformName()}`,
-        getOAuthToken: (cb) => cb(accessToken),
+        getOAuthToken: (cb) => {
+          if (latestToken.current) {
+            cb(latestToken.current);
+          }
+        },
       });
       createdPlayer = newPlayer;
       newPlayer.addListener("ready", ({ device_id }) => {
@@ -77,17 +89,14 @@ export function useSpotifyPlayer(accessToken: string | null) {
       }
     };
 
-    if (window.Spotify) {
-      void createPlayer();
-    } else {
-      window.onSpotifyWebPlaybackSDKReady = () => void createPlayer();
-      if (!document.querySelector(`script[src="${SDK_URL}"]`)) {
-        const script = document.createElement("script");
-        script.src = SDK_URL;
-        script.async = true;
-        document.body.appendChild(script);
-      }
-    }
+    // Load the SDK anew for every player. A second player created from an already loaded SDK in
+    // the same page (after leaving and reopening a song) never became ready.
+    window.onSpotifyWebPlaybackSDKReady = () => void createPlayer();
+    document.querySelector(`script[src="${SDK_URL}"]`)?.remove();
+    const script = document.createElement("script");
+    script.src = SDK_URL;
+    script.async = true;
+    document.body.appendChild(script);
 
     // A reload or closed tab skips the cleanup below; without disconnecting, Spotify would list
     // the dead player as a device for several minutes.
@@ -102,7 +111,7 @@ export function useSpotifyPlayer(accessToken: string | null) {
       setDeviceId(null);
       setError(null);
     };
-  }, [accessToken]);
+  }, [enabled]);
 
   return { player, deviceId, error };
 }
