@@ -10,7 +10,9 @@ pub fn new_pool(args: DatabaseArgs) -> Pool {
         config,
         NoTls,
         ManagerConfig {
-            recycling_method: RecyclingMethod::Fast,
+            // Checks a connection before reusing it: after the machine slept, Postgres may have
+            // closed it, and the request using it would fail.
+            recycling_method: RecyclingMethod::Verified,
         },
     );
     Pool::builder(manager)

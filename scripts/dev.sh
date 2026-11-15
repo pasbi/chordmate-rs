@@ -2,6 +2,15 @@
 # Starts the dev database (Docker), the backend and the frontend.
 # Keys: r = rebuild and restart the backend, q or Ctrl+C = stop everything.
 set -euo pipefail
+
+# Keep the PC from sleeping while this runs: sleep would suspend the backend, the database and
+# the Spotify desktop app. The script re-runs itself under systemd-inhibit; the lock ends with it.
+if [[ -z "${CHORDMATE_SLEEP_INHIBITED:-}" ]]; then
+  export CHORDMATE_SLEEP_INHIBITED=1
+  exec systemd-inhibit --what=sleep --who=ChordMate --why="ChordMate dev setup is running" \
+    "$0" "$@"
+fi
+
 cd "$(dirname "$0")/.."
 
 source .env

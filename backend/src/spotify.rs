@@ -5,7 +5,7 @@ use reqwest::Client;
 use serde::Deserialize;
 use serde_json::Value;
 use std::env;
-use std::time::{Duration, Instant};
+use std::time::{Duration, SystemTime};
 use tokio::sync::Mutex;
 
 /// Access tokens are treated as expired this long before Spotify says they expire.
@@ -23,12 +23,14 @@ struct TokenResponse {
 struct StoredToken {
     access_token: String,
     refresh_token: String,
-    expires_at: Instant,
+    // Wall-clock time: `Instant` doesn't advance while the machine sleeps (on Linux), so a token
+    // that expired during sleep would still look valid afterwards.
+    expires_at: SystemTime,
 }
 
 impl StoredToken {
     fn is_expired(&self) -> bool {
-        self.expires_at <= Instant::now()
+        self.expires_at <= SystemTime::now()
     }
 }
 
@@ -117,9 +119,8 @@ impl SpotifyClient {
             ));
         }
 
-        serde_json::from_str(&text).map_err(|e| {
-            TokenError::FailedToGet(format!("Failed to parse token response: {e}"))
-        })
+        serde_json::from_str(&text)
+            .map_err(|e| TokenError::FailedToGet(format!("Failed to parse token response: {e}")))
     }
 
     pub async fn exchange_code_for_token(&self, code: &str) -> Result<(), TokenError> {
@@ -140,7 +141,7 @@ impl SpotifyClient {
         *self.token_cache.lock().await = Some(StoredToken {
             access_token: resp.access_token,
             refresh_token,
-            expires_at: Instant::now() + Duration::from_secs(resp.expires_in) - EXPIRY_MARGIN,
+            expires_at: SystemTime::now() + Duration::from_secs(resp.expires_in) - EXPIRY_MARGIN,
         });
         Ok(())
     }
@@ -161,7 +162,7 @@ impl SpotifyClient {
             token.refresh_token = refresh_token;
         }
         token.access_token = resp.access_token;
-        token.expires_at = Instant::now() + Duration::from_secs(resp.expires_in) - EXPIRY_MARGIN;
+        token.expires_at = SystemTime::now() + Duration::from_secs(resp.expires_in) - EXPIRY_MARGIN;
         Ok(())
     }
 
@@ -184,7 +185,10 @@ impl SpotifyClient {
 
     pub async fn access_token_expires_in(&self) -> Duration {
         match &*self.token_cache.lock().await {
-            Some(token) => token.expires_at.saturating_duration_since(Instant::now()),
+            Some(token) => token
+                .expires_at
+                .duration_since(SystemTime::now())
+                .unwrap_or(Duration::ZERO),
             None => Duration::ZERO,
         }
     }
@@ -203,7 +207,7 @@ impl SpotifyClient {
         Ok(row.map(|row| StoredToken {
             access_token: String::new(),
             refresh_token: row.get("refresh_token"),
-            expires_at: Instant::now(),
+            expires_at: SystemTime::now(),
         }))
     }
 
