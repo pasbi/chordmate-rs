@@ -1,7 +1,7 @@
-import { type AccessTokenStatus, useAccessToken } from "../hooks/useAccessToken";
-import { useSpotifyPlayer } from "../hooks/useSpotifyPlayer";
+import type { AccessTokenStatus } from "../hooks/useAccessToken";
+import type { Playback } from "../hooks/usePlayback";
+import type { PlaybackState } from "../lib/spotifyApi";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import type { SpotifyPlaybackState } from "../types/global";
 import { isTypingTarget } from "../lib/isTypingTarget";
 
 type Milliseconds = number & { readonly __unit: "ms" };
@@ -25,15 +25,23 @@ function trackIdToUri(trackId: string) {
   return `spotify:track:${trackId}`;
 }
 
-function accessTokenStatusMessage(status: AccessTokenStatus): string | null {
-  switch (status) {
+function statusMessage(
+  accessTokenStatus: AccessTokenStatus,
+  unavailableDeviceName: string | null,
+  playerError: string | null
+): string | null {
+  switch (accessTokenStatus) {
     case "waitingForLogin":
       return "Not connected to Spotify. Log in on the machine running the Chordmate server; playback starts here automatically.";
     case "serverUnreachable":
       return "Cannot reach the Chordmate server. Retrying…";
     case "loading":
-    case "ready":
       return null;
+    case "ready":
+      if (unavailableDeviceName !== null) {
+        return `“${unavailableDeviceName}” is not available. Start Spotify there, or choose another device under 🔊.`;
+      }
+      return playerError === null ? null : `Spotify player error: ${playerError}`;
   }
 }
 
@@ -87,29 +95,151 @@ function ControlButton({
 }
 
 const SLIDER_SEEK_DELAY_MS = 300;
-const POLL_INTERVAL_MS = 500;
+const DISPLAY_TICK_MS = 250;
+
+/** A polled playback state and when it was taken, to move the position on between polls. */
+type Sample = { state: PlaybackState | null; takenAt: number };
 
 export default function SpotifyPlayer({
   trackId,
   enableShortcuts,
   volume,
+  playback,
+  accessTokenStatus,
+  unavailableDeviceName,
+  playerError,
 }: {
   trackId: string;
   enableShortcuts: boolean;
   /** Linear slider value, 0–100. */
   volume: number;
+  /** Null while no device is ready to play. */
+  playback: Playback | null;
+  accessTokenStatus: AccessTokenStatus;
+  /** Name of the chosen output device while it is unavailable. */
+  unavailableDeviceName: string | null;
+  /** Why this browser's player can't start, if it can't. */
+  playerError: string | null;
 }) {
-  const { accessToken, status: accessTokenStatus } = useAccessToken();
-  const statusMessage = accessTokenStatusMessage(accessTokenStatus);
-  const { player, deviceId } = useSpotifyPlayer(accessToken, trackIdToUri(trackId));
-  const [paused, setPaused] = useState(true);
-  const [duration, setDuration] = useState(0); // in ms
-  const [position, setPosition] = useState(0); // in ms
-  // The track the player actually has loaded; differs from `trackId` after linking another track.
-  const [loadedTrackUri, setLoadedTrackUri] = useState<string | null>(null);
-  const showsLinkedTrack = loadedTrackUri === trackIdToUri(trackId);
-  const displayedPosition = showsLinkedTrack ? position : 0;
-  const displayedDuration = showsLinkedTrack ? duration : 0;
+  const message = statusMessage(accessTokenStatus, unavailableDeviceName, playerError);
+  const trackUri = trackIdToUri(trackId);
+
+  const [sample, setSample] = useState<Sample>({ state: null, takenAt: 0 });
+  const refresh = useCallback(async () => {
+    if (!playback) {
+      return;
+    }
+    const state = await playback.currentState();
+    setSample({ state, takenAt: performance.now() });
+  }, [playback]);
+
+  useEffect(() => {
+    if (!playback) {
+      return;
+    }
+    const poll = () => refresh().catch(console.error);
+    poll();
+    const interval = setInterval(poll, playback.pollIntervalMs);
+    return () => clearInterval(interval);
+  }, [playback, refresh]);
+
+  // The state only says which track is loaded; after linking another track it is the old one.
+  const state = sample.state?.trackUri === trackUri ? sample.state : null;
+  const paused = state === null || state.paused;
+
+  // Between polls, a playing track's position moves on with the clock.
+  const [now, setNow] = useState(() => performance.now());
+  useEffect(() => {
+    if (paused) {
+      return;
+    }
+    const interval = setInterval(() => setNow(performance.now()), DISPLAY_TICK_MS);
+    return () => clearInterval(interval);
+  }, [paused]);
+
+  // While the user drags the slider, it shows the dragged position instead of the player's.
+  const [scrubPosition, setScrubPosition] = useState<number | null>(null);
+  const duration = state?.duration ?? 0;
+  const playedSincePoll = paused ? 0 : Math.max(0, now - sample.takenAt);
+  const position = scrubPosition ?? Math.min((state?.position ?? 0) + playedSincePoll, duration);
+
+  const sliderSeekTimeout = useRef<number | null>(null);
+  const handleSliderChange = (newPosition: number) => {
+    setScrubPosition(newPosition);
+    if (sliderSeekTimeout.current) {
+      clearTimeout(sliderSeekTimeout.current);
+    }
+    sliderSeekTimeout.current = setTimeout(() => {
+      if (!playback) {
+        setScrubPosition(null);
+        return;
+      }
+      playback
+        .seek(newPosition)
+        .then(() =>
+          setSample((previous) => ({
+            state: previous.state && { ...previous.state, position: newPosition },
+            takenAt: performance.now(),
+          }))
+        )
+        .catch(console.error)
+        .finally(() => setScrubPosition(null));
+    }, SLIDER_SEEK_DELAY_MS);
+  };
+
+  // Applied with a delay, so that dragging the volume slider doesn't flood the device with calls.
+  // Another device keeps its own volume until the slider is moved here.
+  const volumeDeviceId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!playback) {
+      return;
+    }
+    const newDevice = volumeDeviceId.current !== playback.deviceId;
+    volumeDeviceId.current = playback.deviceId;
+    if (newDevice && !playback.restoresVolume) {
+      return;
+    }
+    const timeout = setTimeout(() => {
+      playback.setVolume(sliderToVolume(volume)).catch(console.error);
+    }, SLIDER_SEEK_DELAY_MS);
+    return () => clearTimeout(timeout);
+  }, [playback, volume]);
+
+  // Start playback once, when a device is ready, unless it already plays this track (e.g. the
+  // PC plays it and the song was just opened on a tablet).
+  const autoplayed = useRef(false);
+  useEffect(() => {
+    if (!playback || autoplayed.current) {
+      return;
+    }
+    autoplayed.current = true;
+    playback
+      .currentState()
+      .then((current) =>
+        current?.trackUri === trackUri && !current.paused ? undefined : playback.play(trackUri, 0)
+      )
+      .then(refresh)
+      .catch(console.error);
+  }, [playback, trackUri, refresh]);
+
+  // Choosing another output device moves the music there, playing if it was playing, so that the
+  // controls keep acting on what is heard. Only the first device starts by autoplay instead.
+  const wasPlaying = useRef(false);
+  useEffect(() => {
+    wasPlaying.current = !paused;
+  }, [paused]);
+  const previousDeviceId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!playback) {
+      return;
+    }
+    const switched =
+      previousDeviceId.current !== null && previousDeviceId.current !== playback.deviceId;
+    previousDeviceId.current = playback.deviceId;
+    if (switched) {
+      playback.transferHere(wasPlaying.current).then(refresh).catch(console.error);
+    }
+  }, [playback, refresh]);
 
   // Linking another track pauses the old one instead of playing the new one; Play then starts
   // the new track from the beginning.
@@ -119,121 +249,50 @@ export default function SpotifyPlayer({
       return;
     }
     previousTrackId.current = trackId;
-    player?.pause().catch(console.error);
-  }, [player, trackId]);
-
-  // While the user drags the slider, player updates must not move it back.
-  const scrubbingRef = useRef(false);
-  const sliderSeekTimeout = useRef<number | null>(null);
-  const handleSliderChange = (newPosition: number) => {
-    scrubbingRef.current = true;
-    setPosition(newPosition);
-    if (sliderSeekTimeout.current) {
-      clearTimeout(sliderSeekTimeout.current);
-    }
-    sliderSeekTimeout.current = setTimeout(() => {
-      if (!player) {
-        scrubbingRef.current = false;
-        return;
-      }
-      player
-        .seek(newPosition)
-        .catch(console.error)
-        .finally(() => (scrubbingRef.current = false));
-    }, SLIDER_SEEK_DELAY_MS);
-  };
-
-  // Applied with a delay, so that dragging the volume slider doesn't flood the player with calls.
-  useEffect(() => {
-    if (!player) {
-      return;
-    }
-    const timeout = setTimeout(() => {
-      player.setVolume(sliderToVolume(volume)).catch(console.error);
-    }, SLIDER_SEEK_DELAY_MS);
-    return () => clearTimeout(timeout);
-  }, [player, volume]);
-
-  useEffect(() => {
-    if (!player) return;
-
-    const applyState = (state: SpotifyPlaybackState | null) => {
-      if (!state) {
-        return;
-      }
-      setPaused(state.paused);
-      setDuration(state.duration);
-      setLoadedTrackUri(state.track_window.current_track.uri);
-      if (!scrubbingRef.current) {
-        setPosition(state.position);
-      }
-    };
-
-    player.addListener("player_state_changed", applyState);
-    const interval = setInterval(
-      async () => applyState(await player.getCurrentState()),
-      POLL_INTERVAL_MS
-    );
-
-    return () => {
-      player.removeListener("player_state_changed");
-      clearInterval(interval);
-    };
-  }, [player]);
+    playback?.pause().catch(console.error);
+  }, [playback, trackId]);
 
   const togglePlay = useCallback(async () => {
-    if (!deviceId || !accessToken) {
+    if (!playback) {
       return;
     }
-
     try {
       if (paused) {
-        await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            uris: [trackIdToUri(trackId)],
-            position_ms: displayedPosition,
-          }),
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-        });
+        await playback.play(trackUri, position);
       } else {
-        await fetch(`https://api.spotify.com/v1/me/player/pause?device_id=${deviceId}`, {
-          method: "PUT",
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
+        await playback.pause();
       }
     } catch (err) {
       console.error(err);
     }
-  }, [deviceId, accessToken, paused, trackId, displayedPosition]);
+    // Also after a failure, so that the controls show the actual state instead of a stale one.
+    await refresh().catch(console.error);
+  }, [playback, paused, trackUri, position, refresh]);
 
-  // Seeks run one after another, each relative to the player's actual position at that moment,
+  // Seeks run one after another, each relative to the device's actual position at that moment,
   // so that quickly repeated presses add up exactly.
   const seekQueue = useRef(Promise.resolve());
   const seekTo = useCallback(
-    (targetOf: (state: SpotifyPlaybackState) => number) => {
-      if (!player) {
+    (targetOf: (current: PlaybackState) => number) => {
+      if (!playback) {
         return;
       }
       seekQueue.current = seekQueue.current
         .then(async () => {
-          const state = await player.getCurrentState();
-          if (!state) {
+          const current = await playback.currentState();
+          if (!current) {
             return;
           }
-          const target = Math.min(Math.max(targetOf(state), 0), state.duration);
-          await player.seek(target);
-          setPosition(target);
+          const target = Math.min(Math.max(targetOf(current), 0), current.duration);
+          await playback.seek(target);
+          setSample({ state: { ...current, position: target }, takenAt: performance.now() });
         })
         .catch(console.error);
     },
-    [player]
+    [playback]
   );
   const seekBy = useCallback(
-    (delta: Seconds) => seekTo((state) => state.position + delta * 1000),
+    (delta: Seconds) => seekTo((current) => current.position + delta * 1000),
     [seekTo]
   );
   const seekStart = () => seekTo(() => 0);
@@ -264,25 +323,23 @@ export default function SpotifyPlayer({
   // does it wrap onto its own full-width line below the buttons.
   return (
     <div className="flex flex-col gap-1">
-      {statusMessage && (
-        <p className="text-xs text-amber-700 dark:text-amber-400">{statusMessage}</p>
-      )}
+      {message && <p className="text-xs text-amber-700 dark:text-amber-400">{message}</p>}
       <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
         <div className="flex flex-1 basis-40 items-center gap-2">
           <span className="text-xs tabular-nums text-gray-700 dark:text-gray-300">
-            {formatTime(displayedPosition as Milliseconds)}
+            {formatTime(position as Milliseconds)}
           </span>
           <input
             className="flex-1 h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-600"
             type="range"
             aria-label="Position"
             min={0}
-            max={displayedDuration}
-            value={displayedPosition}
+            max={duration}
+            value={position}
             onChange={(e) => handleSliderChange(Number(e.target.value))}
           />
           <span className="text-xs tabular-nums text-gray-700 dark:text-gray-300">
-            {formatTime(displayedDuration as Milliseconds)}
+            {formatTime(duration as Milliseconds)}
           </span>
         </div>
 

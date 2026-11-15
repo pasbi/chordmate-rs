@@ -1,82 +1,108 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { SpotifyPlayer } from "../types/global";
 
-export function useSpotifyPlayer(accessToken: string | null, trackUri: string) {
-  const playerRef = useRef<SpotifyPlayer | null>(null);
+const SDK_URL = "https://sdk.scdn.co/spotify-player.js";
+
+/** Start of the name under which ChordMate's browser players appear as Spotify devices. */
+export const CHORDMATE_PLAYER_NAME_PREFIX = "ChordMate – ";
+
+const ERROR_EVENTS = [
+  "initialization_error",
+  "authentication_error",
+  "account_error",
+  "playback_error",
+] as const;
+
+/** A short platform name, so that ChordMate players on different devices can be told apart. */
+function platformName() {
+  const userAgent = navigator.userAgent;
+  if (/Android/i.test(userAgent)) return "Android";
+  if (/iPad|iPhone|iPod/.test(userAgent)) return "iOS";
+  if (/Windows/.test(userAgent)) return "Windows";
+  if (/Mac/.test(userAgent)) return "Mac";
+  if (/Linux/.test(userAgent)) return "Linux";
+  return "Browser";
+}
+
+/**
+ * Plays Spotify in this browser through the Web Playback SDK, which registers the browser as a
+ * Spotify Connect device. Pass null instead of a token to not create a player at all.
+ */
+export function useSpotifyPlayer(accessToken: string | null) {
+  const [player, setPlayer] = useState<SpotifyPlayer | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
+  // Without this, a player that can't start (no DRM support, no Premium, …) fails silently.
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!accessToken) {
       return;
     }
+    let canceled = false;
+    let createdPlayer: SpotifyPlayer | null = null;
 
-    const script = document.createElement("script");
-    script.src = "https://sdk.scdn.co/spotify-player.js";
-    script.async = true;
-    document.body.appendChild(script);
-
-    window.onSpotifyWebPlaybackSDKReady = () => {
-      const player = new Spotify.Player({
-        name: "Web Player",
+    const createPlayer = async () => {
+      const newPlayer = new Spotify.Player({
+        name: `${CHORDMATE_PLAYER_NAME_PREFIX}${platformName()}`,
         getOAuthToken: (cb) => cb(accessToken),
       });
-
-      player.addListener("ready", ({ device_id: deviceId }) => {
-        if (deviceId) {
-          setDeviceId(deviceId);
-        } else {
-          console.error("Failed to retrieve deviceId.");
+      createdPlayer = newPlayer;
+      newPlayer.addListener("ready", ({ device_id }) => {
+        if (!canceled) {
+          setDeviceId(device_id);
+          setError(null);
         }
       });
-      let canceled = false;
-      (async () => {
-        if (!(await player.connect())) {
-          console.error("Spotify Player failed to connect.");
-          return;
+      newPlayer.addListener("not_ready", () => {
+        if (!canceled) {
+          setDeviceId(null);
         }
-        if (canceled) {
-          console.log("Spotify Player connection canceled before the connection was established.");
-          return;
-        }
-        console.log("Spotify Player connected");
-        playerRef.current = player;
-      })();
-      return () => {
-        canceled = true;
-        player.disconnect();
-        playerRef.current = null;
-      };
-    };
-
-    return () => {
-      playerRef.current?.disconnect();
-    };
-  }, [accessToken]);
-
-  // Start playback once, when the player has connected. Neither a refreshed token nor a newly
-  // linked track restarts it.
-  const autoplayedDeviceId = useRef<string | null>(null);
-  useEffect(() => {
-    if (!playerRef.current || !deviceId || autoplayedDeviceId.current === deviceId) {
-      return;
-    }
-    autoplayedDeviceId.current = deviceId;
-
-    const play = async () => {
-      const res = await fetch(`https://api.spotify.com/v1/me/player/play?device_id=${deviceId}`, {
-        method: "PUT",
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ uris: [trackUri] }),
       });
-      if (res.ok) {
-        console.log("Spotify Player plays.");
-      } else {
-        console.error("Spotify Player failed to play.");
+      for (const event of ERROR_EVENTS) {
+        newPlayer.addListener(event, ({ message }) => {
+          console.error(`Spotify player ${event}: ${message}`);
+          if (!canceled) {
+            setError(message);
+          }
+        });
+      }
+      if (!(await newPlayer.connect())) {
+        if (!canceled) {
+          setError("The Spotify player could not connect.");
+        }
+        return;
+      }
+      if (!canceled) {
+        setPlayer(newPlayer);
       }
     };
 
-    play();
-  }, [accessToken, deviceId, trackUri]);
+    if (window.Spotify) {
+      void createPlayer();
+    } else {
+      window.onSpotifyWebPlaybackSDKReady = () => void createPlayer();
+      if (!document.querySelector(`script[src="${SDK_URL}"]`)) {
+        const script = document.createElement("script");
+        script.src = SDK_URL;
+        script.async = true;
+        document.body.appendChild(script);
+      }
+    }
 
-  return { player: playerRef.current, deviceId };
+    // A reload or closed tab skips the cleanup below; without disconnecting, Spotify would list
+    // the dead player as a device for several minutes.
+    const disconnectOnPageHide = () => createdPlayer?.disconnect();
+    window.addEventListener("pagehide", disconnectOnPageHide);
+
+    return () => {
+      canceled = true;
+      window.removeEventListener("pagehide", disconnectOnPageHide);
+      createdPlayer?.disconnect();
+      setPlayer(null);
+      setDeviceId(null);
+      setError(null);
+    };
+  }, [accessToken]);
+
+  return { player, deviceId, error };
 }

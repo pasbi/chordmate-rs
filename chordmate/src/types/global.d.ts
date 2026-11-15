@@ -3,7 +3,8 @@ export {};
 declare global {
   interface Window {
     onSpotifyWebPlaybackSDKReady: () => void;
-    Spotify: SpotifyNamespace;
+    // Only defined once the Web Playback SDK script has loaded.
+    Spotify?: SpotifyNamespace;
   }
 
   const Spotify: SpotifyNamespace;
@@ -28,7 +29,8 @@ interface SpotifyPlayer {
       | "player_state_changed"
       | "initialization_error"
       | "authentication_error"
-      | "account_error",
+      | "account_error"
+      | "playback_error",
     cb: (data: any) => void,
   ): boolean;
   getCurrentState(): Promise<SpotifyPlaybackState | null>;

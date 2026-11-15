@@ -16,6 +16,9 @@ import { useKeepScreenOn } from "../hooks/useKeepScreenOn";
 import { Popover } from "./Popover.tsx";
 import { NavBarPortal } from "./NavBarPortal.tsx";
 import { usePlayerVolume } from "../hooks/usePlayerVolume";
+import { usePlaybackDevice } from "../hooks/usePlaybackDevice";
+import { usePlayback } from "../hooks/usePlayback";
+import { PlaybackDevicePicker } from "./PlaybackDevicePicker.tsx";
 import {
   MAX_SHEET_FONT_SIZE,
   MIN_SHEET_FONT_SIZE,
@@ -60,7 +63,13 @@ export default function SongDetail() {
   const [searchOpen, setSearchOpen] = useState(false);
   const { volume, setVolume } = usePlayerVolume();
   const { fontSize, setFontSize } = useSheetFontSize();
-  const { accessToken } = useAccessToken();
+  const { accessToken, status: accessTokenStatus } = useAccessToken();
+  const playbackDevice = usePlaybackDevice(accessToken);
+  const { playback, error: playerError } = usePlayback(
+    accessToken,
+    playbackDevice.targetName !== null,
+    playbackDevice.targetDeviceId
+  );
   const trackInfo = useTrackInfo(song?.spotifyTrack ?? "", accessToken);
   const [editMode, setEditMode] = useState(false);
   const hasUnsavedChanges = editedContent !== null && editedContent !== song?.content;
@@ -138,20 +147,31 @@ export default function SongDetail() {
 
   const volumePopover = (
     <Popover
-      label="Volume"
+      label="Playback device and volume"
       renderTrigger={(toggle, open) => (
         <Button
           variant="secondary"
           size="icon"
-          title="Volume"
+          title="Playback device and volume"
           aria-expanded={open}
-          onClick={toggle}
+          onClick={() => {
+            if (!open) {
+              void playbackDevice.refreshDevices();
+            }
+            toggle();
+          }}
         >
           🔊
         </Button>
       )}
     >
-      <div className="flex items-center gap-2">
+      <PlaybackDevicePicker
+        devices={playbackDevice.devices}
+        targetName={playbackDevice.targetName}
+        onSelect={playbackDevice.setTargetName}
+        onRefresh={() => void playbackDevice.refreshDevices()}
+      />
+      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
         <input
           type="range"
           min="0"
@@ -280,7 +300,15 @@ export default function SongDetail() {
     <div className="flex flex-col h-full">
       {toolbar}
       <div className="shrink-0 flex flex-col gap-2 px-2 py-1.5 md:px-4 border-b border-gray-200 dark:border-gray-700">
-        <SpotifyPlayer trackId={song.spotifyTrack} enableShortcuts={!editMode} volume={volume} />
+        <SpotifyPlayer
+          trackId={song.spotifyTrack}
+          enableShortcuts={!editMode}
+          volume={volume}
+          playback={playback}
+          accessTokenStatus={accessTokenStatus}
+          unavailableDeviceName={playbackDevice.targetMissing ? playbackDevice.targetName : null}
+          playerError={playerError}
+        />
       </div>
       <div className="flex-1 min-h-0 p-1 md:p-3">
         <Editor
