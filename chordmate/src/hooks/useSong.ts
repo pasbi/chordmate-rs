@@ -37,8 +37,6 @@ interface UpdateSongTrackData {
 // TODO:
 //  - auto scroll synced to playback (simple: position/duration; later: timestamps per section)
 //  - transpose chords by semitones
-//  - allow "Into", "Verse", "x[0-9]+" in chord lines
-//  - B7sus2 is a valid chord
 //  - migrate this list to issues
 
 interface UpdateSongTrackVars {

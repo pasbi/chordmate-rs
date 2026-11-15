@@ -7,8 +7,11 @@ browser, and a BPM with a metronome.
 ## Features
 
 - Song library: create, edit and delete songs (title, artist, album art, BPM).
-- Chord sheet editor that recognizes chord lines (`Am  F  C  G`, slash chords,
-  `N.C.`, …) and section headers (`[Verse]`, `[Chorus]`) and highlights them.
+- Chord sheets in [ChordPro](https://www.chordpro.org) (`[Am]Lyrics go [F]here`,
+  `{c: Chorus}`), shown with each chord above its syllable. Chords above lyrics,
+  as pasted from Ultimate Guitar, are converted on paste (undo once to keep the
+  pasted text). Songs saved in the old format are converted with
+  `npm run convert-songs` (in `chordmate/`; dry run unless `--apply` is given).
 - Spotify search to link a song to a track; in-browser playback through the
   Spotify Web Playback SDK (requires Spotify Premium).
 - Metronome with a tap-tempo button that blinks on the beat.

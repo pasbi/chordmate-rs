@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { detectChords, detectSectionHeader } from "./analyzeLine";
+import { detectChords, detectSectionHeader, isTabLine } from "./analyzeLine";
 
 describe("detectChords", () => {
   const positiveExamples = [
@@ -17,6 +17,11 @@ describe("detectChords", () => {
     "F#msus4/A",
     "F#mdim/A",
     "|(D#) | D# | D# | F | N.C.|",
+    "B7sus2 Cmaj7 Bm7b5 B7+5",
+    "Intro: Am F C G x2",
+    "Dm7*   x02033",
+    "Ebmaj9   (x68766)",
+    "   Cmaj7          C7           C6          C add G#       C",
   ];
 
   it("detects positive chord lines", () => {
@@ -35,6 +40,7 @@ describe("detectChords", () => {
     "123 456 789",
     "A Donkey, A Dog, A D C A D C A D",
     "|[D#] | D# | D# | F | N.C.|",
+    "Explain it to me",
   ];
 
   it("rejects negative lines", () => {
@@ -56,9 +62,35 @@ describe("detectSectionHeader", () => {
 
   const negativeExamples = ["[]", "", "[foo", "[SECTION]X"];
 
-  it("detects positive section headers", () => {
+  it("rejects negative section headers", () => {
     for (const line of negativeExamples) {
       expect(detectSectionHeader(line), `Failed for line: "${line}"`).toBe(false);
     }
+  });
+});
+
+describe("detectChords tokens", () => {
+  it("classifies chords, annotations and other tokens with their columns", () => {
+    const { tokens } = detectChords("Intro: Am  x-x-0 x2");
+    expect(tokens.map(({ start, text, kind }) => [start, text, kind])).toEqual([
+      [0, "Intro:", "annotation"],
+      [7, "Am", "chord"],
+      [11, "x", "other"],
+      [13, "x", "other"],
+      [15, "0", "other"],
+      [17, "x2", "annotation"],
+    ]);
+  });
+});
+
+describe("isTabLine", () => {
+  it("detects tablature", () => {
+    expect(isTabLine("e|-------7-8-10/12\\10~|")).toBe(true);
+    expect(isTabLine("D|--------------|  repeat")).toBe(true);
+  });
+
+  it("rejects bar notation of chords", () => {
+    expect(isTabLine("| D    | D    | G    | Gm   | x2")).toBe(false);
+    expect(isTabLine("|- C - C - C -|")).toBe(false);
   });
 });

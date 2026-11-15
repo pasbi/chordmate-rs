@@ -5,7 +5,7 @@ html, body, #root {
     margin: 0;
 }
 
-/* ProseMirror wraps lines by default; chord sheets must keep chords above their lyrics. */
+/* The ChordPro source is edited like code: one source line per line. */
 .chord-sheet .ProseMirror {
     white-space: pre;
     overflow-wrap: normal;
@@ -14,6 +14,14 @@ html, body, #root {
 
 .chord-token {
     @apply text-blue-600 dark:text-blue-400 font-extrabold;
+}
+
+.chord-annotation {
+    @apply text-gray-600 dark:text-gray-400 italic;
+}
+
+.directive-token {
+    @apply text-purple-700 dark:text-purple-400;
 }
 
 .section-header-token {
