@@ -1,6 +1,6 @@
 import type { AccessTokenStatus } from "../hooks/useAccessToken";
 import type { Playback } from "../hooks/usePlayback";
-import type { PlaybackState } from "../lib/spotifyApi";
+import { type PlaybackState, playsTrack } from "../lib/spotifyApi";
 import type { Bookmarks } from "../hooks/useBookmarks";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isTypingTarget } from "../lib/isTypingTarget";
@@ -62,6 +62,7 @@ type Sample = { state: PlaybackState | null; takenAt: number };
 
 export default function SpotifyPlayer({
   trackId,
+  replacementTrackUri,
   bookmarks,
   enableShortcuts,
   volume,
@@ -71,6 +72,8 @@ export default function SpotifyPlayer({
   playerError,
 }: {
   trackId: string;
+  /** The track Spotify plays instead of `trackId`'s if that one was withdrawn, else null. */
+  replacementTrackUri: string | null;
   /** The bookmarks of the song in this track. */
   bookmarks: Bookmarks;
   enableShortcuts: boolean;
@@ -108,7 +111,13 @@ export default function SpotifyPlayer({
 
   // This song's state; null while the device has another track loaded (e.g. after linking a
   // new track, or when something else was started there).
-  const state = sample.state?.trackUri === trackUri ? sample.state : null;
+  // Same check as playsTrack(), written out: passing `sample.state` to an imported function
+  // during render makes the React Compiler assume it gets mutated and skip this component.
+  const playsThisTrack =
+    sample.state?.trackUri === trackUri ||
+    (replacementTrackUri !== null && sample.state?.trackUri === replacementTrackUri) ||
+    sample.state?.linkedFromUri === trackUri;
+  const state = playsThisTrack ? sample.state : null;
   // The button acts on whatever the device plays: a different song must be pausable here, too.
   const playingAnything = sample.state !== null && !sample.state.paused;
   const paused = !playingAnything;
@@ -204,11 +213,13 @@ export default function SpotifyPlayer({
     playback
       .currentState()
       .then((current) =>
-        current?.trackUri === trackUri && !current.paused ? undefined : playback.play(trackUri, 0)
+        playsTrack(current, trackUri, replacementTrackUri) && !current?.paused
+          ? undefined
+          : playback.play(trackUri, 0)
       )
       .then(refresh)
       .catch(console.error);
-  }, [playback, trackUri, refresh]);
+  }, [playback, trackUri, replacementTrackUri, refresh]);
 
   // Choosing another output device moves the music there, playing if it was playing, so that the
   // controls keep acting on what is heard. Only the first device starts by autoplay instead.
@@ -300,7 +311,11 @@ export default function SpotifyPlayer({
       seekQueue.current = seekQueue.current
         .then(async () => {
           const current = await playback.currentState();
-          if (current?.trackUri === trackUri && !current.paused) {
+          if (
+            current !== null &&
+            playsTrack(current, trackUri, replacementTrackUri) &&
+            !current.paused
+          ) {
             const target = Math.min(Math.max(positionMs, 0), current.duration);
             await playback.seek(target);
             setSample({ state: { ...current, position: target }, takenAt: performance.now() });
@@ -311,7 +326,7 @@ export default function SpotifyPlayer({
         })
         .catch(console.error);
     },
-    [playback, trackUri, refresh]
+    [playback, trackUri, replacementTrackUri, refresh]
   );
 
   // The bookmark menu and manager take the keyboard while they are open.

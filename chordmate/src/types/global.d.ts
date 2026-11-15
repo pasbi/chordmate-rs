@@ -47,6 +47,8 @@ interface SpotifyPlaybackState {
     current_track: {
       uri: string;
       name: string;
+      /** The requested track, when Spotify plays a replacement for it (track relinking). */
+      linked_from: { uri: string | null };
     };
   };
 }

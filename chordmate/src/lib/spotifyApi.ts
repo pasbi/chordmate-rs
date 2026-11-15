@@ -14,8 +14,31 @@ export type PlaybackState = {
   position: number; // ms
   duration: number; // ms
   trackUri: string | null;
+  /**
+   * The track that was asked for, when Spotify plays a replacement instead ("track relinking"):
+   * a linked track that is no longer available in the user's country is replaced by an
+   * equivalent one, e.g. a remaster that moved to another release.
+   */
+  linkedFromUri: string | null;
   trackName: string | null;
 };
+
+/**
+ * Whether `state` plays `trackUri`: the track itself, its known replacement (played directly,
+ * e.g. from the replacement's own album), or a replacement Spotify substituted on request.
+ */
+export function playsTrack(
+  state: PlaybackState | null,
+  trackUri: string,
+  replacementUri: string | null
+) {
+  return (
+    state !== null &&
+    (state.trackUri === trackUri ||
+      (replacementUri !== null && state.trackUri === replacementUri) ||
+      state.linkedFromUri === trackUri)
+  );
+}
 
 type DevicesResponse = {
   devices: { id: string | null; name: string; type: string }[];
@@ -25,10 +48,16 @@ type PlayerResponse = {
   device: { id: string | null } | null;
   is_playing: boolean;
   progress_ms: number | null;
-  item: { uri: string; name: string; duration_ms: number } | null;
+  item: {
+    uri: string;
+    name: string;
+    duration_ms: number;
+    linked_from: { uri: string } | null;
+  } | null;
 };
 
 type TrackResponse = {
+  uri: string;
   album: { uri: string } | null;
 };
 
@@ -70,7 +99,8 @@ export async function fetchDevices(accessToken: string): Promise<SpotifyDevice[]
 /** The user's current playback anywhere, or null if nothing is active. */
 export async function fetchPlaybackState(accessToken: string): Promise<PlaybackState | null> {
   const requestedAt = performance.now();
-  const response = await request(accessToken, "GET", "/me/player", null);
+  // With the market, Spotify reports replaced tracks (linked_from).
+  const response = await request(accessToken, "GET", "/me/player?market=from_token", null);
   if (response.status === 204) {
     return null;
   }
@@ -83,6 +113,7 @@ export async function fetchPlaybackState(accessToken: string): Promise<PlaybackS
     position: (player.progress_ms ?? 0) + lag,
     duration: player.item?.duration_ms ?? 0,
     trackUri: player.item?.uri ?? null,
+    linkedFromUri: player.item?.linked_from?.uri ?? null,
     trackName: player.item?.name ?? null,
   };
 }
@@ -99,17 +130,40 @@ export async function startPlayback(
   });
 }
 
-const albumUris = new Map<string, string | null>();
+type PlayableTrack = { trackUri: string; albumUri: string | null };
+const playableTracks = new Map<string, PlayableTrack>();
 
-/** The album of a track (`spotify:track:<id>`), looked up once per track. */
-async function albumUriOf(accessToken: string, trackUri: string) {
-  if (!albumUris.has(trackUri)) {
-    const trackId = trackUri.split(":").at(-1);
-    const response = await request(accessToken, "GET", `/tracks/${trackId}`, null);
-    const track: TrackResponse = await response.json();
-    albumUris.set(trackUri, track.album?.uri ?? null);
+/**
+ * The track Spotify actually plays for `trackUri` in the user's country (a replacement if the
+ * linked one was withdrawn) and its album. Looked up once per track.
+ */
+async function playableTrackOf(accessToken: string, trackUri: string) {
+  const known = playableTracks.get(trackUri);
+  if (known) {
+    return known;
   }
-  return albumUris.get(trackUri) ?? null;
+  let track = await fetchTrack(accessToken, trackUri);
+  if (track.uri !== trackUri) {
+    // Replaced: the album reported with it can be the withdrawn track's album, which lists the
+    // song under yet another id. The replacement's own album lists it under its id.
+    track = await fetchTrack(accessToken, track.uri);
+  }
+  const playable = { trackUri: track.uri, albumUri: track.album?.uri ?? null };
+  playableTracks.set(trackUri, playable);
+  return playable;
+}
+
+/** The track Spotify plays instead of `trackUri` in the user's country, or null if none. */
+export async function replacementTrackUri(accessToken: string, trackUri: string) {
+  const playable = await playableTrackOf(accessToken, trackUri);
+  return playable.trackUri === trackUri ? null : playable.trackUri;
+}
+
+/** A track as available in the user's country (`market=from_token`). */
+async function fetchTrack(accessToken: string, trackUri: string): Promise<TrackResponse> {
+  const trackId = trackUri.split(":").at(-1);
+  const response = await request(accessToken, "GET", `/tracks/${trackId}?market=from_token`, null);
+  return response.json();
 }
 
 /**
@@ -124,14 +178,15 @@ export async function startPlaybackInAlbum(
   trackUri: string,
   position: number
 ) {
-  const albumUri = await albumUriOf(accessToken, trackUri);
-  if (albumUri === null) {
+  // A withdrawn track's own album isn't available either; use the replacement and its album.
+  const playable = await playableTrackOf(accessToken, trackUri);
+  if (playable.albumUri === null) {
     await startPlayback(accessToken, deviceId, trackUri, position);
     return;
   }
   await request(accessToken, "PUT", `/me/player/play?${deviceQuery(deviceId)}`, {
-    context_uri: albumUri,
-    offset: { uri: trackUri },
+    context_uri: playable.albumUri,
+    offset: { uri: playable.trackUri },
     position_ms: Math.round(position),
   });
 }

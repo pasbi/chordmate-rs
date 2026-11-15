@@ -84,6 +84,7 @@ export function usePlayback(
             position: state.position,
             duration: state.duration,
             trackUri: state.track_window.current_track.uri,
+            linkedFromUri: state.track_window.current_track.linked_from.uri,
             trackName: state.track_window.current_track.name,
           }
         );
