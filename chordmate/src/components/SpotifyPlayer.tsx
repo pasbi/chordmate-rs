@@ -143,9 +143,34 @@ export default function SpotifyPlayer({
     return () => clearInterval(interval);
   }, [playback, refresh]);
 
-  // The state only says which track is loaded; after linking another track it is the old one.
+  // This song's state; null while the device has another track loaded (e.g. after linking a
+  // new track, or when something else was started there).
   const state = sample.state?.trackUri === trackUri ? sample.state : null;
-  const paused = state === null || state.paused;
+  // The button acts on whatever the device plays: a different song must be pausable here, too.
+  const playingAnything = sample.state !== null && !sample.state.paused;
+  const paused = !playingAnything;
+  const otherTrackPlaying =
+    playingAnything && state === null ? (sample.state?.trackName ?? "another song") : null;
+
+  // Closing the song (navigating away, closing or reloading the page) pauses it, also on another
+  // device. Something else playing there, started elsewhere, is left alone.
+  const latest = useRef({ playback, playingThisSong: false });
+  useEffect(() => {
+    latest.current = { playback, playingThisSong: state !== null && !state.paused };
+  });
+  useEffect(() => {
+    const pauseThisSong = () => {
+      const { playback: current, playingThisSong } = latest.current;
+      if (current && playingThisSong) {
+        current.pause().catch(console.error);
+      }
+    };
+    window.addEventListener("pagehide", pauseThisSong);
+    return () => {
+      window.removeEventListener("pagehide", pauseThisSong);
+      pauseThisSong();
+    };
+  }, []);
 
   // Between polls, a playing track's position moves on with the clock.
   const [now, setNow] = useState(() => performance.now());
@@ -324,6 +349,11 @@ export default function SpotifyPlayer({
   return (
     <div className="flex flex-col gap-1">
       {message && <p className="text-xs text-amber-700 dark:text-amber-400">{message}</p>}
+      {otherTrackPlaying && (
+        <p className="text-xs text-gray-600 dark:text-gray-400">
+          Now playing “{otherTrackPlaying}”, not this song. Pause it, then play to start this one.
+        </p>
+      )}
       <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
         <div className="flex flex-1 basis-40 items-center gap-2">
           <span className="text-xs tabular-nums text-gray-700 dark:text-gray-300">

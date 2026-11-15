@@ -6,6 +6,7 @@ import {
   seekPlayback,
   setPlaybackVolume,
   startPlayback,
+  startPlaybackInAlbum,
   transferPlayback,
 } from "../lib/spotifyApi";
 import { useSpotifyPlayer } from "./useSpotifyPlayer";
@@ -60,7 +61,7 @@ export function usePlayback(
           return state?.deviceId === remoteDeviceId ? state : null;
         },
         play: (trackUri, position) =>
-          startPlayback(accessToken, remoteDeviceId, trackUri, position),
+          startPlaybackInAlbum(accessToken, remoteDeviceId, trackUri, position),
         transferHere: (play) => transferPlayback(accessToken, remoteDeviceId, play),
         pause: () => pausePlayback(accessToken, remoteDeviceId),
         seek: (position) => seekPlayback(accessToken, remoteDeviceId, position),
@@ -83,6 +84,7 @@ export function usePlayback(
             position: state.position,
             duration: state.duration,
             trackUri: state.track_window.current_track.uri,
+            trackName: state.track_window.current_track.name,
           }
         );
       },

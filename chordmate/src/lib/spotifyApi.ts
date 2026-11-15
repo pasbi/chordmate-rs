@@ -14,6 +14,7 @@ export type PlaybackState = {
   position: number; // ms
   duration: number; // ms
   trackUri: string | null;
+  trackName: string | null;
 };
 
 type DevicesResponse = {
@@ -24,7 +25,11 @@ type PlayerResponse = {
   device: { id: string | null } | null;
   is_playing: boolean;
   progress_ms: number | null;
-  item: { uri: string; duration_ms: number } | null;
+  item: { uri: string; name: string; duration_ms: number } | null;
+};
+
+type TrackResponse = {
+  album: { uri: string } | null;
 };
 
 async function request(
@@ -40,6 +45,8 @@ async function request(
       ...(body === null ? {} : { "Content-Type": "application/json" }),
     },
     body: body === null ? undefined : JSON.stringify(body),
+    // Commands must also arrive when sent while the page closes (e.g. pausing on leaving).
+    keepalive: method === "PUT",
   });
   if (!response.ok) {
     throw new Error(
@@ -76,6 +83,7 @@ export async function fetchPlaybackState(accessToken: string): Promise<PlaybackS
     position: (player.progress_ms ?? 0) + lag,
     duration: player.item?.duration_ms ?? 0,
     trackUri: player.item?.uri ?? null,
+    trackName: player.item?.name ?? null,
   };
 }
 
@@ -87,6 +95,43 @@ export async function startPlayback(
 ) {
   await request(accessToken, "PUT", `/me/player/play?${deviceQuery(deviceId)}`, {
     uris: [trackUri],
+    position_ms: Math.round(position),
+  });
+}
+
+const albumUris = new Map<string, string | null>();
+
+/** The album of a track (`spotify:track:<id>`), looked up once per track. */
+async function albumUriOf(accessToken: string, trackUri: string) {
+  if (!albumUris.has(trackUri)) {
+    const trackId = trackUri.split(":").at(-1);
+    const response = await request(accessToken, "GET", `/tracks/${trackId}`, null);
+    const track: TrackResponse = await response.json();
+    albumUris.set(trackUri, track.album?.uri ?? null);
+  }
+  return albumUris.get(trackUri) ?? null;
+}
+
+/**
+ * Plays a track as part of its album, i.e. "play album X from this track", like Spotify's own
+ * apps do. The Spotify desktop app on Linux handles only the first plain track play
+ * (`startPlayback`) after it starts; later ones restart the current song and queue the requested
+ * one behind it. Playing within the album works every time. Afterwards the album continues.
+ */
+export async function startPlaybackInAlbum(
+  accessToken: string,
+  deviceId: string,
+  trackUri: string,
+  position: number
+) {
+  const albumUri = await albumUriOf(accessToken, trackUri);
+  if (albumUri === null) {
+    await startPlayback(accessToken, deviceId, trackUri, position);
+    return;
+  }
+  await request(accessToken, "PUT", `/me/player/play?${deviceQuery(deviceId)}`, {
+    context_uri: albumUri,
+    offset: { uri: trackUri },
     position_ms: Math.round(position),
   });
 }
