@@ -15,6 +15,7 @@ function trackIdToUri(trackId: string) {
 function statusMessage(
   accessTokenStatus: AccessTokenStatus,
   unavailableDeviceName: string | null,
+  trackPlayable: boolean,
   playerError: string | null
 ): string | null {
   switch (accessTokenStatus) {
@@ -27,6 +28,9 @@ function statusMessage(
     case "ready":
       if (unavailableDeviceName !== null) {
         return `“${unavailableDeviceName}” is not available. Start Spotify there, or choose another device under 🔊.`;
+      }
+      if (!trackPlayable) {
+        return "This track isn't available on Spotify in your country. Link another version: Edit, then tap the title.";
       }
       return playerError === null ? null : `Spotify player error: ${playerError}`;
   }
@@ -63,6 +67,7 @@ type Sample = { state: PlaybackState | null; takenAt: number };
 export default function SpotifyPlayer({
   trackId,
   replacementTrackUri,
+  trackPlayable,
   bookmarks,
   enableShortcuts,
   volume,
@@ -74,6 +79,8 @@ export default function SpotifyPlayer({
   trackId: string;
   /** The track Spotify plays instead of `trackId`'s if that one was withdrawn, else null. */
   replacementTrackUri: string | null;
+  /** False if the linked track can't be played in the user's country at all. */
+  trackPlayable: boolean;
   /** The bookmarks of the song in this track. */
   bookmarks: Bookmarks;
   enableShortcuts: boolean;
@@ -87,7 +94,12 @@ export default function SpotifyPlayer({
   /** Why this browser's player can't start, if it can't. */
   playerError: string | null;
 }) {
-  const message = statusMessage(accessTokenStatus, unavailableDeviceName, playerError);
+  const message = statusMessage(
+    accessTokenStatus,
+    unavailableDeviceName,
+    trackPlayable,
+    playerError
+  );
   const trackUri = trackIdToUri(trackId);
 
   const [sample, setSample] = useState<Sample>({ state: null, takenAt: 0 });

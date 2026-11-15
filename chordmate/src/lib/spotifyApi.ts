@@ -58,6 +58,8 @@ type PlayerResponse = {
 
 type TrackResponse = {
   uri: string;
+  /** Only reported when asked with a market; false if the track can't be played there. */
+  is_playable?: boolean;
   album: { uri: string } | null;
 };
 
@@ -130,7 +132,7 @@ export async function startPlayback(
   });
 }
 
-type PlayableTrack = { trackUri: string; albumUri: string | null };
+type PlayableTrack = { trackUri: string; albumUri: string | null; playable: boolean };
 const playableTracks = new Map<string, PlayableTrack>();
 
 /**
@@ -148,15 +150,24 @@ async function playableTrackOf(accessToken: string, trackUri: string) {
     // song under yet another id. The replacement's own album lists it under its id.
     track = await fetchTrack(accessToken, track.uri);
   }
-  const playable = { trackUri: track.uri, albumUri: track.album?.uri ?? null };
+  const playable = {
+    trackUri: track.uri,
+    albumUri: track.album?.uri ?? null,
+    playable: track.is_playable !== false,
+  };
   playableTracks.set(trackUri, playable);
   return playable;
 }
 
-/** The track Spotify plays instead of `trackUri` in the user's country, or null if none. */
-export async function replacementTrackUri(accessToken: string, trackUri: string) {
-  const playable = await playableTrackOf(accessToken, trackUri);
-  return playable.trackUri === trackUri ? null : playable.trackUri;
+/** How `trackUri` can be played in the user's country. */
+export async function trackAvailability(accessToken: string, trackUri: string) {
+  const track = await playableTrackOf(accessToken, trackUri);
+  return {
+    /** The track Spotify plays instead, or null if it plays `trackUri` itself. */
+    replacementUri: track.trackUri === trackUri ? null : track.trackUri,
+    /** False if the track can't be played at all, not even through a replacement. */
+    playable: track.playable,
+  };
 }
 
 /** A track as available in the user's country (`market=from_token`). */

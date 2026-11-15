@@ -18,7 +18,7 @@ import { NavBarPortal } from "./NavBarPortal.tsx";
 import { usePlayerVolume } from "../hooks/usePlayerVolume";
 import { usePlaybackDevice } from "../hooks/usePlaybackDevice";
 import { usePlayback } from "../hooks/usePlayback";
-import { useReplacementTrack } from "../hooks/useReplacementTrack";
+import { useTrackAvailability } from "../hooks/useTrackAvailability";
 import { PlaybackDevicePicker } from "./PlaybackDevicePicker.tsx";
 import {
   MAX_SHEET_FONT_SIZE,
@@ -67,7 +67,7 @@ export default function SongDetail() {
   const { fontSize, setFontSize } = useSheetFontSize();
   const { accessToken, status: accessTokenStatus } = useAccessToken();
   const playbackDevice = usePlaybackDevice(accessToken);
-  const replacementTrackUri = useReplacementTrack(
+  const trackAvailability = useTrackAvailability(
     accessToken,
     song?.spotifyTrack ? `spotify:track:${song.spotifyTrack}` : null
   );
@@ -307,7 +307,8 @@ export default function SongDetail() {
       <div className="shrink-0 flex flex-col gap-2 px-2 py-1.5 md:px-4 border-b border-gray-200 dark:border-gray-700">
         <SpotifyPlayer
           trackId={song.spotifyTrack}
-          replacementTrackUri={replacementTrackUri}
+          replacementTrackUri={trackAvailability.replacementUri}
+          trackPlayable={trackAvailability.playable}
           bookmarks={bookmarks}
           enableShortcuts={!editMode}
           volume={volume}
