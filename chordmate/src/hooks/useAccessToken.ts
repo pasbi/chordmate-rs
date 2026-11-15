@@ -1,65 +1,60 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import startSpotifyOauthFlow, { isOnServerMachine } from "../spotifyoauth";
 
 interface TokenResponse {
-  accessToken: string;
+  accessToken: string | null;
   expiresInSeconds: number;
 }
 
+const WAIT_FOR_LOGIN_MS = 10000;
+const RETRY_AFTER_ERROR_MS = 5000;
+const REFRESH_MARGIN_MS = 5000;
+
 export function useAccessToken() {
   const [accessToken, setAccessToken] = useState<string | null>(null);
-  const expiresAtRef = useRef<number | null>(null);
-  const timeoutRef = useRef<number | null>(null);
-
-  const fetchToken = useCallback(async () => {
-    try {
-      const res = await fetch(
-        `http://${window.location.hostname}:3000/spotify`,
-      );
-      const data: TokenResponse = await res.json();
-      console.log(JSON.stringify(data));
-      if (data.accessToken === null) {
-        if (isOnServerMachine()) {
-          await startSpotifyOauthFlow(window.location.href);
-          return;
-        }
-        // Other devices wait until someone logs in on the server machine.
-        timeoutRef.current = setTimeout(fetchToken, 10000);
-        return;
-      }
-
-      setAccessToken(data.accessToken);
-
-      // calculate absolute expiry timestamp in ms
-      const expiresAt = Date.now() + data.expiresInSeconds * 1000;
-      expiresAtRef.current = expiresAt;
-
-      // schedule next refresh slightly before expiration
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-
-      const refreshIn = Math.max(data.expiresInSeconds * 1000 - 5000, 0); // refresh 5s early
-      timeoutRef.current = setTimeout(fetchToken, refreshIn);
-    } catch (err) {
-      console.error("Failed to fetch Spotify token", err);
-      setAccessToken(null);
-      expiresAtRef.current = null;
-
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-      timeoutRef.current = setTimeout(fetchToken, 5000);
-    }
-  }, []);
 
   useEffect(() => {
-    fetchToken();
+    let timeout: number | undefined;
+    let cancelled = false;
 
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    const scheduleFetch = (delayMs: number) => {
+      timeout = setTimeout(fetchToken, delayMs);
     };
-  }, [fetchToken]);
+
+    async function fetchToken() {
+      try {
+        const res = await fetch(`http://${window.location.hostname}:3000/spotify`);
+        const data: TokenResponse = await res.json();
+        if (cancelled) {
+          return;
+        }
+        if (data.accessToken === null) {
+          if (isOnServerMachine()) {
+            await startSpotifyOauthFlow(window.location.href);
+            return;
+          }
+          // Other devices wait until someone logs in on the server machine.
+          scheduleFetch(WAIT_FOR_LOGIN_MS);
+          return;
+        }
+        setAccessToken(data.accessToken);
+        scheduleFetch(Math.max(data.expiresInSeconds * 1000 - REFRESH_MARGIN_MS, 0));
+      } catch (err) {
+        console.error("Failed to fetch Spotify token", err);
+        if (cancelled) {
+          return;
+        }
+        setAccessToken(null);
+        scheduleFetch(RETRY_AFTER_ERROR_MS);
+      }
+    }
+
+    fetchToken();
+    return () => {
+      cancelled = true;
+      clearTimeout(timeout);
+    };
+  }, []);
 
   return accessToken;
 }

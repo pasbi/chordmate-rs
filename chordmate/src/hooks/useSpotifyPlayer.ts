@@ -68,7 +68,7 @@ export function useSpotifyPlayer(accessToken: string | null, trackUri: string) {
         {
           method: "PUT",
           headers: { Authorization: `Bearer ${accessToken}` },
-          body: JSON.stringify({ uris: [`spotify:track:${trackUri}`] }),
+          body: JSON.stringify({ uris: [trackUri] }),
         },
       );
       if (res.ok) {
@@ -79,7 +79,7 @@ export function useSpotifyPlayer(accessToken: string | null, trackUri: string) {
     };
 
     play();
-  }, [accessToken, deviceId, deviceId]);
+  }, [accessToken, deviceId, trackUri]);
 
   return { player: playerRef.current, deviceId };
 }

@@ -21,7 +21,7 @@ export interface TrackInfo {
 }
 
 function trackIdToUri(trackId: string) {
-  return `spotify:track/${trackId}`;
+  return `spotify:track:${trackId}`;
 }
 
 export default function SpotifyPlayer({
