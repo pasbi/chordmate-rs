@@ -3,6 +3,7 @@ import { useBlocker, useParams } from "react-router-dom";
 import Editor from "../components/Editor";
 import SpotifyPlayer from "./SpotifyPlayer";
 import useSong from "../hooks/useSong";
+import { useBookmarks } from "../hooks/useBookmarks";
 import { useAccessToken } from "../hooks/useAccessToken";
 import SpotifySearch from "./SpotifySearch.tsx";
 import Button from "./Button.tsx";
@@ -57,6 +58,7 @@ export default function SongDetail() {
   const { id: idString } = useParams<{ id: string }>();
   const id = parseInt(idString!);
   const { song, loading, error, saveContent, saveTrack, saveSongMeta } = useSong(id);
+  const bookmarks = useBookmarks(id, song?.spotifyTrack ?? "");
   // null while the sheet has not been edited since the last save.
   const [editedContent, setEditedContent] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -300,6 +302,7 @@ export default function SongDetail() {
       <div className="shrink-0 flex flex-col gap-2 px-2 py-1.5 md:px-4 border-b border-gray-200 dark:border-gray-700">
         <SpotifyPlayer
           trackId={song.spotifyTrack}
+          bookmarks={bookmarks}
           enableShortcuts={!editMode}
           volume={volume}
           playback={playback}

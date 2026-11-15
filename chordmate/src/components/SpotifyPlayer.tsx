@@ -1,19 +1,12 @@
 import type { AccessTokenStatus } from "../hooks/useAccessToken";
 import type { Playback } from "../hooks/usePlayback";
 import type { PlaybackState } from "../lib/spotifyApi";
-import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import type { Bookmarks } from "../hooks/useBookmarks";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { isTypingTarget } from "../lib/isTypingTarget";
-
-type Milliseconds = number & { readonly __unit: "ms" };
-type Seconds = number & { readonly __unit: "s" };
-
-function formatTime(duration: Milliseconds): string {
-  const totalSeconds = (duration / 1000) as Seconds;
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = Math.floor(totalSeconds % 60);
-
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
-}
+import { formatTime, type Milliseconds, type Seconds } from "../lib/time";
+import { type BookmarkOverlay, BookmarkControls, BookmarkTicks } from "./BookmarkControls";
+import { ControlButton } from "./ControlButton";
 
 function trackIdToUri(trackId: string) {
   return `spotify:track:${trackId}`;
@@ -61,33 +54,6 @@ function PauseIcon() {
   );
 }
 
-function ControlButton({
-  onClick,
-  title,
-  variant,
-  children,
-}: {
-  onClick: () => void;
-  title: string;
-  variant: "primary" | "secondary";
-  children: ReactNode;
-}) {
-  const colors =
-    variant === "primary"
-      ? "min-w-12 bg-blue-500 hover:bg-blue-600 text-white"
-      : "min-w-9 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600";
-  return (
-    <button
-      type="button"
-      title={title}
-      onClick={onClick}
-      className={`h-8 px-1.5 flex items-center justify-center rounded text-sm font-medium tabular-nums focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 ${colors}`}
-    >
-      {children}
-    </button>
-  );
-}
-
 const SLIDER_SEEK_DELAY_MS = 300;
 const DISPLAY_TICK_MS = 250;
 
@@ -96,6 +62,7 @@ type Sample = { state: PlaybackState | null; takenAt: number };
 
 export default function SpotifyPlayer({
   trackId,
+  bookmarks,
   enableShortcuts,
   volume,
   playback,
@@ -104,6 +71,8 @@ export default function SpotifyPlayer({
   playerError,
 }: {
   trackId: string;
+  /** The bookmarks of the song in this track. */
+  bookmarks: Bookmarks;
   enableShortcuts: boolean;
   /** Linear slider value, 0–100. */
   volume: number;
@@ -271,12 +240,18 @@ export default function SpotifyPlayer({
     playback?.pause().catch(console.error);
   }, [playback, trackId]);
 
+  // Where Play was last pressed in this track, the target of ↺ while no bookmark is active.
+  // Jumps don't change it, so that repeated jumps keep returning to the same place.
+  const [playStart, setPlayStart] = useState({ trackUri, positionMs: 0 });
+  const lastPlayStartMs = playStart.trackUri === trackUri ? playStart.positionMs : 0;
+
   const togglePlay = useCallback(async () => {
     if (!playback) {
       return;
     }
     try {
       if (paused) {
+        setPlayStart({ trackUri, positionMs: position });
         await playback.play(trackUri, position);
       } else {
         await playback.pause();
@@ -316,9 +291,36 @@ export default function SpotifyPlayer({
   );
   const seekStart = () => seekTo(() => 0);
 
+  /** Moves to a position in this song's track and plays, whatever the device did before. */
+  const jumpAndPlay = useCallback(
+    (positionMs: number) => {
+      if (!playback) {
+        return;
+      }
+      seekQueue.current = seekQueue.current
+        .then(async () => {
+          const current = await playback.currentState();
+          if (current?.trackUri === trackUri && !current.paused) {
+            const target = Math.min(Math.max(positionMs, 0), current.duration);
+            await playback.seek(target);
+            setSample({ state: { ...current, position: target }, takenAt: performance.now() });
+          } else {
+            await playback.play(trackUri, Math.max(positionMs, 0));
+            await refresh();
+          }
+        })
+        .catch(console.error);
+    },
+    [playback, trackUri, refresh]
+  );
+
+  // The bookmark menu and manager take the keyboard while they are open.
+  const [bookmarkOverlay, setBookmarkOverlay] = useState<BookmarkOverlay>(null);
+  const shortcutsActive = enableShortcuts && bookmarkOverlay === null;
+
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (!enableShortcuts || isTypingTarget(e.target)) {
+      if (!shortcutsActive || isTypingTarget(e.target)) {
         return;
       }
       switch (e.key) {
@@ -336,7 +338,7 @@ export default function SpotifyPlayer({
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [enableShortcuts, togglePlay, seekBy]);
+  }, [shortcutsActive, togglePlay, seekBy]);
 
   // One row, buttons left of the slider. Only when the slider would get narrower than its basis
   // does it wrap onto its own full-width line below the buttons.
@@ -353,15 +355,20 @@ export default function SpotifyPlayer({
           <span className="text-xs tabular-nums text-gray-700 dark:text-gray-300">
             {formatTime(position as Milliseconds)}
           </span>
-          <input
-            className="flex-1 h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-600"
-            type="range"
-            aria-label="Position"
-            min={0}
-            max={duration}
-            value={position}
-            onChange={(e) => handleSliderChange(Number(e.target.value))}
-          />
+          {/* The bookmark ticks lie under the slider, taller than its track, so that the thumb
+              covers them as it passes. */}
+          <div className="relative flex-1 flex items-center">
+            <BookmarkTicks bookmarks={bookmarks} durationMs={duration} />
+            <input
+              className="relative w-full h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-600"
+              type="range"
+              aria-label="Position"
+              min={0}
+              max={duration}
+              value={position}
+              onChange={(e) => handleSliderChange(Number(e.target.value))}
+            />
+          </div>
           <span className="text-xs tabular-nums text-gray-700 dark:text-gray-300">
             {formatTime(duration as Milliseconds)}
           </span>
@@ -407,6 +414,16 @@ export default function SpotifyPlayer({
             +10
           </ControlButton>
         </div>
+        <BookmarkControls
+          bookmarks={bookmarks}
+          positionMs={position}
+          durationMs={duration}
+          lastPlayStartMs={lastPlayStartMs}
+          enableShortcuts={shortcutsActive}
+          overlay={bookmarkOverlay}
+          onOverlayChange={setBookmarkOverlay}
+          onJump={jumpAndPlay}
+        />
       </div>
     </div>
   );

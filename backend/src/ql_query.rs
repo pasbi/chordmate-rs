@@ -1,3 +1,4 @@
+use crate::bookmark::Bookmark;
 use crate::database_connection::DatabaseConnection;
 use crate::song::Song;
 use crate::spotify::SpotifyClient;
@@ -34,6 +35,24 @@ impl QLQuery {
         let statement = client.prepare("SELECT * FROM songs WHERE id = $1").await?;
         let row = client.query_one(&statement, &[&id]).await?;
         Ok(Song::from_row(&row)?)
+    }
+
+    /// The song's bookmarks in the given Spotify track, in playback order.
+    async fn bookmarks(&self, song_id: i32, spotify_track: String) -> FieldResult<Vec<Bookmark>> {
+        let client = self.database_connection.get().await?;
+        let statement = client
+            .prepare(
+                "SELECT * FROM bookmarks WHERE song_id = $1 AND spotify_track = $2 \
+                 ORDER BY position_ms, id",
+            )
+            .await?;
+        let rows = client
+            .query(&statement, &[&song_id, &spotify_track])
+            .await?;
+        Ok(rows
+            .iter()
+            .map(Bookmark::from_row)
+            .collect::<Result<Vec<_>, _>>()?)
     }
 
     async fn search_spotify_tracks(&self, query: String) -> FieldResult<Vec<SpotifyTrack>> {

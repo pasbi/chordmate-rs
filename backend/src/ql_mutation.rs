@@ -1,3 +1,4 @@
+use crate::bookmark::Bookmark;
 use crate::database_connection::DatabaseConnection;
 use juniper::{graphql_object, FieldResult};
 
@@ -65,5 +66,53 @@ impl QLMutation {
             .query_one(&statement, &[&id, &title, &artist, &album_art_url, &bpm])
             .await?;
         Ok(row.try_get("id")?)
+    }
+
+    async fn add_bookmark(
+        &self,
+        song_id: i32,
+        spotify_track: String,
+        position_ms: i32,
+        label: String,
+    ) -> FieldResult<Bookmark> {
+        let client = self.database_connection.get().await?;
+        let statement = client
+            .prepare(
+                "INSERT INTO bookmarks (song_id, spotify_track, position_ms, label) \
+                 VALUES ($1, $2, $3, $4) RETURNING *;",
+            )
+            .await?;
+        let row = client
+            .query_one(
+                &statement,
+                &[&song_id, &spotify_track, &position_ms, &label],
+            )
+            .await?;
+        Ok(Bookmark::from_row(&row)?)
+    }
+
+    async fn update_bookmark(
+        &self,
+        id: i32,
+        position_ms: i32,
+        label: String,
+    ) -> FieldResult<Bookmark> {
+        let client = self.database_connection.get().await?;
+        let statement = client
+            .prepare("UPDATE bookmarks SET position_ms = $2, label = $3 WHERE id = $1 RETURNING *;")
+            .await?;
+        let row = client
+            .query_one(&statement, &[&id, &position_ms, &label])
+            .await?;
+        Ok(Bookmark::from_row(&row)?)
+    }
+
+    async fn delete_bookmark(&self, id: i32) -> FieldResult<bool> {
+        let client = self.database_connection.get().await?;
+        let statement = client
+            .prepare("DELETE FROM bookmarks WHERE id = $1;")
+            .await?;
+        client.execute(&statement, &[&id]).await?;
+        Ok(true)
     }
 }

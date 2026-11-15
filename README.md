@@ -18,6 +18,12 @@ browser, and a BPM with a metronome.
   remote-control the Spotify desktop app on the PC (see below).
 - Precise seeking (±1 s, ±10 s), metronome with tap tempo, and per-device font
   size and volume; the screen stays on while a song is open.
+- Bookmarks to practice a passage: 🔖+ (or `B`) marks the current position, ↺ (or
+  `R`) jumps back to the active bookmark 2 s early and plays. The ▾ menu chooses
+  the active bookmark; “Manage bookmarks…” renames, shifts, plays and deletes
+  them. Bookmarks belong to the song's current Spotify track: linking another
+  track hides them, linking the old one again brings them back. With no
+  bookmark active, ↺ returns to where Play was last pressed.
 - Song list with search, sorting (remembered per device) and grouping by artist.
 - Light/dark theme following the system setting.
 
@@ -33,9 +39,10 @@ Planned features are described in [BACKLOG.md](BACKLOG.md).
 
 The backend serves:
 
-- `/graphql` – GraphQL endpoint (queries: `songs`, `song`, `searchSpotifyTracks`;
-  mutations: `addSong`, `deleteSong`, `updateSongContent`, `updateSongTrack`,
-  `updateSongMeta`)
+- `/graphql` – GraphQL endpoint (queries: `songs`, `song`, `bookmarks`,
+  `searchSpotifyTracks`; mutations: `addSong`, `deleteSong`, `updateSongContent`,
+  `updateSongTrack`, `updateSongMeta`, `addBookmark`, `updateBookmark`,
+  `deleteBookmark`)
 - `/graphiql`, `/playground` – interactive GraphQL explorers
 - `/spotify`, `/callback` – Spotify OAuth configuration and redirect target
 
