@@ -2,6 +2,7 @@ import { useMutation } from "@apollo/client/react";
 import { gql } from "@apollo/client";
 import { useNavigate } from "react-router-dom";
 import { GET_SONGS } from "../graphql";
+import Button from "./Button.tsx";
 
 const ADD_SONG = gql`
   mutation AddSong {
@@ -26,14 +27,8 @@ export default function SongForm() {
   const navigate = useNavigate();
 
   return (
-    <div>
-      <button
-        onClick={() => {
-          addSong();
-        }}
-      >
-        Add Song
-      </button>
-    </div>
+    <Button variant="primary" onClick={() => addSong()}>
+      Add Song
+    </Button>
   );
 }

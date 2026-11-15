@@ -3,101 +3,109 @@ import { useQuery } from "@apollo/client/react";
 import type GetSongsData from "../types/GetSongsData";
 import { GET_SONGS } from "../graphql";
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
+import SongForm from "./SongForm";
 
 type SortField = "id" | "title" | "artist";
+
+const SORT_FIELD_LABELS: Record<SortField, string> = {
+  id: "Added",
+  title: "Title",
+  artist: "Artist",
+};
+
+function compareSongs(a: Song, b: Song, field: SortField) {
+  if (field === "id") {
+    return a.id - b.id;
+  }
+  return a[field].toLowerCase().localeCompare(b[field].toLowerCase());
+}
+
+function matchesFilter(song: Song, filter: string) {
+  const needle = filter.toLowerCase();
+  return [song.title, song.artist].some((value) => value.toLowerCase().includes(needle));
+}
+
+function SongRow({ song }: { song: Song }) {
+  return (
+    <li>
+      <Link
+        to={`/songs/${song.id}`}
+        className="flex items-center gap-3 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
+      >
+        {song.albumArtUrl ? (
+          <img className="w-12 h-12 rounded object-cover shrink-0" src={song.albumArtUrl} alt="" />
+        ) : (
+          <div className="w-12 h-12 rounded shrink-0 bg-gray-200 dark:bg-gray-700" />
+        )}
+        <div className="flex flex-col min-w-0">
+          <span className="font-medium truncate">{song.title || "Untitled"}</span>
+          <span className="text-sm truncate text-gray-600 dark:text-gray-400">{song.artist}</span>
+        </div>
+      </Link>
+    </li>
+  );
+}
 
 export default function SongsList() {
   const { data, loading, error } = useQuery<GetSongsData>(GET_SONGS);
 
   const [filter, setFilter] = useState("");
   const [sortField, setSortField] = useState<SortField>("id");
-  const [sortAsc, setSortAsc] = useState(true);
-  const navigate = useNavigate();
+  const [sortAscending, setSortAscending] = useState(true);
 
   const displayedSongs = useMemo(() => {
-    if (!data) {
-      return [];
-    }
-    return data.songs
-      .filter((song: Song) =>
-        [song.title, song.artist].some((v) => v.toLowerCase().includes(filter.toLowerCase()))
-      )
-      .sort((a: Song, b: Song) => {
-        const valA = a[sortField];
-        const valB = b[sortField];
-        const f = sortAsc ? 1 : -1;
-        if (typeof valA === "string" && typeof valB === "string") {
-          return f * valA.toLowerCase().localeCompare(valB.toLowerCase());
-        }
-        if (typeof valA === "number" && typeof valB === "number") {
-          return f * (valA - valB);
-        }
-        return 0;
-      });
-  }, [data, filter, sortField, sortAsc]);
+    const direction = sortAscending ? 1 : -1;
+    return (data?.songs ?? [])
+      .filter((song) => matchesFilter(song, filter))
+      .sort((a, b) => direction * compareSongs(a, b, sortField));
+  }, [data, filter, sortField, sortAscending]);
 
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortAsc(!sortAsc);
-    } else {
-      setSortField(field);
-      setSortAsc(true);
-    }
-  };
+  if (loading) return <p className="p-4">Loading songs...</p>;
+  if (error) return <p className="p-4">Error: {error.message}</p>;
 
-  if (loading) return <p>Loading songs...</p>;
-  if (error) return <p>Error: {error.message}</p>;
+  const inputClasses =
+    "p-2 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800";
 
   return (
-    <div className="w-full px-3 sm:px-4 md:max-w-xl md:mx-auto">
-      <input
-        type="text"
-        placeholder="Search by title, artist, or ID"
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
-        className="w-full p-2 mb-4 border rounded"
-      />
-      <div className="flex-1 overflow-x-auto">
-        <table className="min-w-125 w-full border-collapse">
-          <thead className="sticky top-0 z-10 bg-blue-200 dark:bg-blue-950">
-            <tr className="border-b">
-              <th className="p-2">Icon</th>
-              <th className="p-2 cursor-pointer text-left" onClick={() => handleSort("title")}>
-                Title {sortField === "title" ? (sortAsc ? "↑" : "↓") : ""}
-              </th>
-              <th className="p-2 cursor-pointer text-left" onClick={() => handleSort("artist")}>
-                Artist {sortField === "artist" ? (sortAsc ? "↑" : "↓") : ""}
-              </th>
-              <th className="p-2 cursor-pointer text-left" onClick={() => handleSort("id")}>
-                ID {sortField === "id" ? (sortAsc ? "↑" : "↓") : ""}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {displayedSongs.map((song) => (
-              <tr
-                key={song.id}
-                className="border-b hover:bg-gray-50 dark:hover:bg-blue-900"
-                onClick={() => navigate(`${song.id}`)}
-              >
-                <td>
-                  <img
-                    className="w-16"
-                    src={song.albumArtUrl ?? undefined}
-                    alt={song.albumArtUrl ?? "/"}
-                  ></img>
-                </td>
-                <td className="p-2">{song.title}</td>
-                <td className="p-2">{song.artist}</td>
-                <td className="p-2">{song.id}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {displayedSongs.length === 0 && <p className="text-center py-4">No songs found</p>}
+    <div className="w-full px-2 sm:px-4 md:max-w-xl md:mx-auto">
+      <div className="sticky top-0 z-10 flex flex-wrap gap-2 py-2 bg-white dark:bg-gray-900">
+        <input
+          type="search"
+          placeholder="Search title or artist"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          className={`flex-1 min-w-40 ${inputClasses}`}
+        />
+        <select
+          aria-label="Sort by"
+          value={sortField}
+          onChange={(e) => setSortField(e.target.value as SortField)}
+          className={inputClasses}
+        >
+          {Object.entries(SORT_FIELD_LABELS).map(([field, label]) => (
+            <option key={field} value={field}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <button
+          type="button"
+          title={sortAscending ? "Ascending" : "Descending"}
+          onClick={() => setSortAscending(!sortAscending)}
+          className={`w-10 ${inputClasses}`}
+        >
+          {sortAscending ? "↑" : "↓"}
+        </button>
+        <SongForm />
       </div>
+
+      <ul className="flex flex-col">
+        {displayedSongs.map((song) => (
+          <SongRow key={song.id} song={song} />
+        ))}
+      </ul>
+      {displayedSongs.length === 0 && <p className="text-center py-4">No songs found</p>}
     </div>
   );
 }
