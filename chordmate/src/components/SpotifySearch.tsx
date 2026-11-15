@@ -3,11 +3,9 @@ import { gql } from "@apollo/client";
 import { useLazyQuery } from "@apollo/client/react";
 import type { SpotifyTrack } from "../types/SpotifyTrack";
 import { useDebounce } from "../hooks/useDebounce";
-import { useLocation, useParams } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { GraphQLError } from "graphql/error";
 import startSpotifyOauthFlow from "../spotifyoauth";
-import useSong from "../hooks/useSong.ts";
-import { songLabel } from "../types/Song.ts";
 import { Modal } from "./Modal.tsx";
 import Button from "./Button.tsx";
 import { INPUT_CLASSES } from "./inputClasses.ts";
@@ -46,10 +44,16 @@ async function handleError(error: unknown, currentPath: string) {
   }
 }
 
-export default function SpotifySearch({ onClose }: { onClose: () => void }) {
-  const { id } = useParams();
-  const { song, saveTrack } = useSong(parseInt(id!));
-  const [query, setQuery] = useState(songLabel(song));
+export default function SpotifySearch({
+  initialQuery,
+  onSelect,
+  onClose,
+}: {
+  initialQuery: string;
+  onSelect: (track: SpotifyTrack) => void;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState(initialQuery);
   const [search, { data, loading, error }] = useLazyQuery<
     SearchSpotifyTracksData,
     SearchSpotifyTracksVars
@@ -76,17 +80,6 @@ export default function SpotifySearch({ onClose }: { onClose: () => void }) {
     );
   }, [error, location.pathname, location.search]);
 
-  if (!song) {
-    return <div>Song undefined.</div>;
-  }
-
-  function setTrack(track: SpotifyTrack) {
-    if (!song) {
-      return;
-    }
-    saveTrack(track.id);
-  }
-
   return (
     <Modal label="Select Spotify track" onClose={onClose} className="h-full">
       <div className="p-4 flex flex-col gap-3 border-b border-gray-200 dark:border-gray-700">
@@ -110,7 +103,7 @@ export default function SpotifySearch({ onClose }: { onClose: () => void }) {
             <button
               type="button"
               onClick={() => {
-                setTrack(track);
+                onSelect(track);
                 onClose();
               }}
               className="w-full text-left flex items-center gap-3 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 focus-visible:outline-2 focus-visible:outline-blue-500"

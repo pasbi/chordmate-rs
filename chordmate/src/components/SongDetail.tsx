@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useBlocker, useNavigate, useParams } from "react-router-dom";
 import Editor from "../components/Editor";
 import SpotifyPlayer from "./SpotifyPlayer";
 import useSong from "../hooks/useSong";
@@ -9,6 +9,9 @@ import SpotifySearch from "./SpotifySearch.tsx";
 import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog.tsx";
 import Button from "./Button.tsx";
 import type Song from "../types/Song.ts";
+import { songLabel } from "../types/Song.ts";
+import type { SpotifyTrack } from "../types/SpotifyTrack.ts";
+import { Modal } from "./Modal.tsx";
 import { Metronome, type MetronomeHandle } from "./Metronome.tsx";
 import { useKeepScreenOn } from "../hooks/useKeepScreenOn";
 import { Popover } from "./Popover.tsx";
@@ -44,7 +47,7 @@ function useWarnBeforeUnload(active: boolean) {
 export default function SongDetail() {
   const { id: idString } = useParams<{ id: string }>();
   const id = parseInt(idString!);
-  const { song, loading, error, saveContent, saveSongMeta } = useSong(id);
+  const { song, loading, error, saveContent, saveTrack, saveSongMeta } = useSong(id);
   // null while the sheet has not been edited since the last save.
   const [editedContent, setEditedContent] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -56,21 +59,21 @@ export default function SongDetail() {
   const [editMode, setEditMode] = useState(false);
   const hasUnsavedChanges = editedContent !== null && editedContent !== song?.content;
   useWarnBeforeUnload(hasUnsavedChanges);
+  const navigate = useNavigate();
+  // Set when the song was deleted: there is nothing left to save, so leaving must not be blocked.
+  const songDeleted = useRef(false);
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      hasUnsavedChanges &&
+      !songDeleted.current &&
+      currentLocation.pathname !== nextLocation.pathname
+  );
   useKeepScreenOn(true);
 
   const metronomeRef = useRef<MetronomeHandle>(null);
   useEffect(() => {
     metronomeRef?.current?.setBpm(song?.bpm ?? 120);
   }, [song]);
-
-  const saveCurrentTrackMeta = useCallback(() => {
-    saveSongMeta(
-      trackInfo?.title ?? null,
-      trackInfo?.artists ?? null,
-      trackInfo?.albumArtUrl ?? null,
-      metronomeRef?.current?.getBpm() ?? null
-    );
-  }, [trackInfo, saveSongMeta]);
 
   // Decide on edit mode once per song, not on every refetch: saving refetches the song,
   // and that must not end editing.
@@ -91,25 +94,48 @@ export default function SongDetail() {
   if (error) return <p>Error: {error.message}</p>;
   if (!song) return <p>Song not found</p>;
 
-  const finishEditing = async () => {
-    if (editedContent !== null && hasUnsavedChanges) {
-      try {
+  const currentBpm = () => metronomeRef.current?.getBpm() ?? song.bpm;
+
+  /** Saves the edited sheet and a changed BPM. Returns whether saving succeeded. */
+  const saveEdits = async () => {
+    try {
+      if (editedContent !== null && hasUnsavedChanges) {
         await saveContent(editedContent);
-      } catch (err) {
-        console.error(err);
-        window.alert("Saving the song failed. Your changes are still in the editor.");
-        return;
       }
+      const bpm = currentBpm();
+      if (bpm !== song.bpm) {
+        await saveSongMeta(song.title, [song.artist], song.albumArtUrl, bpm);
+      }
+      setEditedContent(null);
+      return true;
+    } catch (err) {
+      console.error(err);
+      window.alert("Saving the song failed. Your changes are still in the editor.");
+      return false;
     }
-    setEditedContent(null);
-    setEditMode(false);
   };
 
-  const onCloseSearch = () => {
-    setSearchOpen(false);
-    if (isNewSong(song)) {
-      saveCurrentTrackMeta();
+  const finishEditing = async () => {
+    if (await saveEdits()) {
+      setEditMode(false);
     }
+  };
+
+  const saveAndLeave = async () => {
+    if (await saveEdits()) {
+      blocker.proceed?.();
+    }
+  };
+
+  /** Links the track and takes over its title, artists and album art. */
+  const selectTrack = async (track: SpotifyTrack) => {
+    await saveTrack(track.id);
+    await saveSongMeta(track.name, track.artists, track.albumArt ?? null, currentBpm());
+  };
+
+  const leaveDeletedSong = () => {
+    songDeleted.current = true;
+    navigate("/songs");
   };
 
   const albumArtUrl = song.albumArtUrl ?? trackInfo?.albumArtUrl;
@@ -240,9 +266,6 @@ export default function SongDetail() {
       <Button variant="primary" onClick={() => setSearchOpen(true)}>
         Link Spotify Track
       </Button>
-      <Button variant="primary" onClick={saveCurrentTrackMeta}>
-        Use Track Info
-      </Button>
       <Button variant="danger" onClick={() => setConfirmDeleteOpen(true)}>
         Delete
       </Button>
@@ -265,8 +288,40 @@ export default function SongDetail() {
         />
       </div>
 
-      {searchOpen && <SpotifySearch onClose={onCloseSearch} />}
-      {confirmDeleteOpen && <ConfirmDeleteDialog onClose={() => setConfirmDeleteOpen(false)} />}
+      {searchOpen && (
+        <SpotifySearch
+          initialQuery={songLabel(song)}
+          onSelect={selectTrack}
+          onClose={() => setSearchOpen(false)}
+        />
+      )}
+      {confirmDeleteOpen && (
+        <ConfirmDeleteDialog
+          onClose={() => setConfirmDeleteOpen(false)}
+          onDeleted={leaveDeletedSong}
+        />
+      )}
+      {blocker.state === "blocked" && (
+        <Modal label="Unsaved changes" onClose={() => blocker.reset()}>
+          <div className="p-4 flex flex-col gap-4">
+            <h2 className="text-lg font-semibold">Save your changes?</h2>
+            <p className="text-gray-700 dark:text-gray-300">
+              You are leaving {song.title || "this song"} with unsaved changes to the sheet.
+            </p>
+            <div className="flex flex-wrap justify-end gap-2">
+              <Button variant="secondary" onClick={() => blocker.reset()}>
+                Keep editing
+              </Button>
+              <Button variant="danger" onClick={() => blocker.proceed()}>
+                Discard
+              </Button>
+              <Button variant="primary" onClick={saveAndLeave}>
+                Save
+              </Button>
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

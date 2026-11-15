@@ -1,4 +1,4 @@
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useMutation } from "@apollo/client/react";
 import { DELETE_SONG, GET_SONGS } from "../graphql";
 import Button from "./Button.tsx";
@@ -22,11 +22,17 @@ function labelSong(song?: Song) {
   return "Empty Song";
 }
 
-export function ConfirmDeleteDialog({ onClose }: { onClose: () => void }) {
+export function ConfirmDeleteDialog({
+  onClose,
+  onDeleted,
+}: {
+  onClose: () => void;
+  /** Called once the song is deleted; the caller leaves the song page. */
+  onDeleted: () => void;
+}) {
   const { id: idString } = useParams<{ id: string }>();
   const id = parseInt(idString!);
 
-  const navigate = useNavigate();
   const [deleteSong] = useMutation(DELETE_SONG);
 
   const handleConfirm = async () => {
@@ -34,7 +40,7 @@ export function ConfirmDeleteDialog({ onClose }: { onClose: () => void }) {
       variables: { id },
       refetchQueries: [{ query: GET_SONGS, variables: {} }],
     });
-    navigate("/songs");
+    onDeleted();
   };
 
   const { song } = useSong(id);

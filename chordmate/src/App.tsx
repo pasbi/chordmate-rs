@@ -3,7 +3,7 @@ import { ApolloClient, InMemoryCache, HttpLink } from "@apollo/client";
 import { ApolloProvider } from "@apollo/client/react";
 import SongsManager from "./components/SongsManager";
 import useSystemTheme from "./hooks/useSystemTheme";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import { createBrowserRouter, Navigate, Outlet, RouterProvider } from "react-router-dom";
 import About from "./components/About";
 import SongDetail from "./components/SongDetail";
 import NavBar from "./components/NavBar";
@@ -18,29 +18,42 @@ const client = new ApolloClient({
   cache: new InMemoryCache(),
 });
 
+function Layout() {
+  const [navBarSlot, setNavBarSlot] = useState<HTMLElement | null>(null);
+  return (
+    <NavBarSlotContext.Provider value={navBarSlot}>
+      <div className="flex flex-col h-full min-h-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+        <NavBar slotRef={setNavBarSlot} />
+        <div className="flex-1 flex flex-col overflow-auto">
+          <Outlet />
+        </div>
+      </div>
+    </NavBarSlotContext.Provider>
+  );
+}
+
+// A data router (rather than <BrowserRouter>) is required for useBlocker, which the song page
+// uses to ask before leaving with unsaved changes.
+const router = createBrowserRouter([
+  {
+    element: <Layout />,
+    children: [
+      { path: "/", element: <Navigate to="/songs" replace /> },
+      { path: "/about", element: <About /> },
+      { path: "/songs", element: <SongsManager /> },
+      { path: "/songs/:id", element: <SongDetail /> },
+    ],
+  },
+]);
+
 export default function App() {
   const theme = useSystemTheme();
-  const [navBarSlot, setNavBarSlot] = useState<HTMLElement | null>(null);
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
   return (
     <ApolloProvider client={client}>
-      <Router>
-        <NavBarSlotContext.Provider value={navBarSlot}>
-          <div className="flex flex-col h-full min-h-full bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
-            <NavBar slotRef={setNavBarSlot} />
-            <div className="flex-1 flex flex-col overflow-auto">
-              <Routes>
-                <Route path="/" element={<Navigate to="/songs" replace />} />
-                <Route path="/about" element={<About />} />
-                <Route path="/songs" element={<SongsManager />} />
-                <Route path="songs/:id" element={<SongDetail />} />
-              </Routes>
-            </div>
-          </div>
-        </NavBarSlotContext.Provider>
-      </Router>
+      <RouterProvider router={router} />
     </ApolloProvider>
   );
 }

@@ -37,11 +37,7 @@ interface UpdateSongTrackData {
 // TODO:
 //  - auto scroll synced to playback (simple: position/duration; later: timestamps per section)
 //  - transpose chords by semitones
-//  - focus the search block
-//  - close search window after accepting a song
 //  - allow "Into", "Verse", "x[0-9]+" in chord lines
-//  - new songs should appear in edit-mode
-//  - make it easier to paste content
 //  - B7sus2 is a valid chord
 //  - migrate this list to issues
 
