@@ -1,3 +1,6 @@
 /backend/target
 .idea/
 .env
+
+# Database backups (scripts/backup.sh)
+*.dump

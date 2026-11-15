@@ -34,11 +34,6 @@ const UPDATE_SONG_CONTENT = gql`
 interface UpdateSongTrackData {
   updateSongTrack: boolean;
 }
-// TODO:
-//  - auto scroll synced to playback (simple: position/duration; later: timestamps per section)
-//  - transpose chords by semitones
-//  - migrate this list to issues
-
 interface UpdateSongTrackVars {
   id: number;
   track: string;

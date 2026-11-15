@@ -14,8 +14,14 @@ browser, and a BPM with a metronome.
   `npm run convert-songs` (in `chordmate/`; dry run unless `--apply` is given).
 - Spotify search to link a song to a track; in-browser playback through the
   Spotify Web Playback SDK (requires Spotify Premium).
-- Metronome with a tap-tempo button that blinks on the beat.
+- Playback on another Spotify device instead: a tablet can show the sheet and
+  remote-control the Spotify desktop app on the PC (see below).
+- Precise seeking (±1 s, ±10 s), metronome with tap tempo, and per-device font
+  size and volume; the screen stays on while a song is open.
+- Song list with search, sorting (remembered per device) and grouping by artist.
 - Light/dark theme following the system setting.
+
+Planned features are described in [BACKLOG.md](BACKLOG.md).
 
 ## Architecture
 
@@ -65,6 +71,14 @@ from a browser on the machine running the backend; other devices on the
 network then pick up the token automatically. The refresh token is stored in
 the database, so the login survives backend restarts.
 
+### Playing on another device
+
+Under 🔊 on a song page, *Play on* lists your Spotify devices. Choose e.g. the
+Spotify desktop app on the PC to use a tablet without audio output as display
+and remote control; the choice is remembered per device. Switching devices
+moves the current playback along. The desktop app has to be running and logged
+in with the same Spotify account.
+
 Database settings are passed as command-line flags or environment variables:
 
 | Flag            | Env var          |
@@ -81,31 +95,29 @@ Database settings are passed as command-line flags or environment variables:
 
 Requirements: Docker (with compose), Rust, and Node.js 20 (see `chordmate/.nvmrc`).
 
-1. Start PostgreSQL (port 5432) and pgAdmin (http://localhost:15080):
+```bash
+scripts/dev.sh
+```
 
-   ```bash
-   docker compose --profile dev up
-   ```
+starts PostgreSQL (port 5432) and pgAdmin (http://localhost:15080) in Docker,
+applies the migrations, and runs the backend (port 3000) and the Vite dev server
+(port 5173, also reachable from other devices on the network). Press `r` to
+rebuild and restart the backend, `q` or Ctrl+C to stop everything. While it
+runs, the PC doesn't go to sleep (`systemd-inhibit`).
 
-2. Apply the database migrations:
+To run the parts by hand instead: `docker compose --profile dev up`, then in
+`backend/` `cargo run --bin migrate -- <db flags>` and
+`cargo run --bin chordmate -- <db flags> --port 3000`, and in `chordmate/`
+`npm run dev -- --host`.
 
-   ```bash
-   cd backend && cargo run --bin migrate -- --db-host localhost --db-port 5432 --db-name postgres --db-user postgres --db-password <POSTGRES_PASSWORD>
-   ```
+### Backups
 
-3. Run the backend:
+```bash
+scripts/backup.sh
+```
 
-   ```bash
-   cd backend && cargo run --bin chordmate -- --db-host localhost --db-port 5432 --db-name postgres --db-user postgres --db-password <POSTGRES_PASSWORD> --port 3000
-   ```
-
-4. Run the frontend; Vite prints the URL to open:
-
-   ```bash
-   cd chordmate && npm install && npm run dev
-   ```
-
-   To open the app from other devices on the network, run `npm run dev -- --host`.
+dumps the running database (dev or prod) to `chordmate-<date>-<time>.dump`,
+without the Spotify login. The restore command is in the script's header.
 
 ### Frontend scripts
 
@@ -118,10 +130,11 @@ Requirements: Docker (with compose), Rust, and Node.js 20 (see `chordmate/.nvmrc
 
 ## Production
 
-Builds and starts the database, backend and an nginx-served frontend:
+Builds and starts the database, backend and an nginx-served frontend, in the
+foreground and without letting the PC sleep; Ctrl+C stops it:
 
 ```bash
-docker compose --profile prod up --build
+scripts/prod.sh
 ```
 
 The app is then available at http://localhost:8080 (backend on port 3000).
@@ -138,3 +151,5 @@ Outside of edit mode, on a song page:
 | Space                 | Play / pause              |
 | ← / →                 | Seek 1 s back / forward   |
 | Ctrl + ← / Ctrl + →   | Seek 10 s back / forward  |
+| ↑ / ↓                 | Scroll the chord sheet    |
+| Esc                   | Close a dialog or popover |

@@ -80,3 +80,12 @@ Spotify. Fuzzy-matching the sheet's lyric lines to the timed LRC lines would giv
 - Opt-in, since it sends artist and title to a third party.
 - Builds on bookmarks: section times could become bookmarks, and allow highlighting or
   auto-scrolling the current section.
+
+## More ideas
+
+Not designed yet; each needs more thought before it is started.
+
+- **Auto-scroll synced to playback.** Simple version: scroll position = playback position /
+  duration. Later: timestamps per section (see the LRCLIB idea above), so the sheet follows the
+  song's structure.
+- **Transpose** chords by semitones.
