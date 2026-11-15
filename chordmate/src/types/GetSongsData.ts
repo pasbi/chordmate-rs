@@ -1,5 +1,5 @@
 import type Song from "../types/Song";
 
 export default interface GetSongsData {
-    songs: Song[];
+  songs: Song[];
 }

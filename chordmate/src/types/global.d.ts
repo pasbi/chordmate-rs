@@ -22,16 +22,14 @@ interface SpotifyPlayer {
   connect(): Promise<boolean>;
   disconnect(): void;
 
+  addListener(event: "ready" | "not_ready", cb: (data: { device_id: string }) => void): boolean;
   addListener(
-    event:
-      | "ready"
-      | "not_ready"
-      | "player_state_changed"
-      | "initialization_error"
-      | "authentication_error"
-      | "account_error"
-      | "playback_error",
-    cb: (data: any) => void,
+    event: "player_state_changed",
+    cb: (state: SpotifyPlaybackState | null) => void
+  ): boolean;
+  addListener(
+    event: "initialization_error" | "authentication_error" | "account_error" | "playback_error",
+    cb: (error: { message: string }) => void
   ): boolean;
   getCurrentState(): Promise<SpotifyPlaybackState | null>;
   removeListener(event: string): boolean;

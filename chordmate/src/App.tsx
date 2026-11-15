@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ApolloClient, InMemoryCache, HttpLink } from "@apollo/client";
 import { ApolloProvider } from "@apollo/client/react";
 import SongsManager from "./components/SongsManager";
-import useSystemTheme from "./hooks/useSystemTheme";
 import { createBrowserRouter, Navigate, Outlet, RouterProvider } from "react-router-dom";
 import About from "./components/About";
 import SongDetail from "./components/SongDetail";
@@ -47,10 +46,6 @@ const router = createBrowserRouter([
 ]);
 
 export default function App() {
-  const theme = useSystemTheme();
-  useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-  }, [theme]);
   return (
     <ApolloProvider client={client}>
       <RouterProvider router={router} />

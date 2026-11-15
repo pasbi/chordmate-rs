@@ -1,29 +1,31 @@
 @import "tailwindcss";
 
-html, body, #root {
-    height: 100%;
-    margin: 0;
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
 }
 
 /* The ChordPro source is edited like code: one source line per line. */
 .chord-sheet .ProseMirror {
-    white-space: pre;
-    overflow-wrap: normal;
-    word-wrap: normal;
+  white-space: pre;
+  overflow-wrap: normal;
+  word-wrap: normal;
 }
 
 .chord-token {
-    @apply text-blue-600 dark:text-blue-400 font-extrabold;
+  @apply text-blue-600 dark:text-blue-400 font-extrabold;
 }
 
 .chord-annotation {
-    @apply text-gray-600 dark:text-gray-400 italic;
+  @apply text-gray-600 dark:text-gray-400 italic;
 }
 
 .directive-token {
-    @apply text-purple-700 dark:text-purple-400;
+  @apply text-purple-700 dark:text-purple-400;
 }
 
 .section-header-token {
-    @apply font-extrabold underline;
+  @apply font-extrabold underline;
 }

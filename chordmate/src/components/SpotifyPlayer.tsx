@@ -15,12 +15,6 @@ function formatTime(duration: Milliseconds): string {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-export interface TrackInfo {
-  title: string;
-  artists: string[];
-  albumArtUrl: string | null;
-}
-
 function trackIdToUri(trackId: string) {
   return `spotify:track:${trackId}`;
 }

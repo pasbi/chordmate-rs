@@ -3,7 +3,6 @@ import { useBlocker, useParams } from "react-router-dom";
 import Editor from "../components/Editor";
 import SpotifyPlayer from "./SpotifyPlayer";
 import useSong from "../hooks/useSong";
-import useTrackInfo from "../hooks/useTrackInfo";
 import { useAccessToken } from "../hooks/useAccessToken";
 import SpotifySearch from "./SpotifySearch.tsx";
 import Button from "./Button.tsx";
@@ -70,7 +69,6 @@ export default function SongDetail() {
     playbackDevice.targetName !== null,
     playbackDevice.targetDeviceId
   );
-  const trackInfo = useTrackInfo(song?.spotifyTrack ?? "", accessToken);
   const [editMode, setEditMode] = useState(false);
   const hasUnsavedChanges = editedContent !== null && editedContent !== song?.content;
   useWarnBeforeUnload(hasUnsavedChanges);
@@ -143,7 +141,7 @@ export default function SongDetail() {
     await saveSongMeta(track.name, track.artists, track.albumArt ?? null, currentBpm());
   };
 
-  const albumArtUrl = song.albumArtUrl ?? trackInfo?.albumArtUrl;
+  const albumArtUrl = song.albumArtUrl;
 
   const volumePopover = (
     <Popover
