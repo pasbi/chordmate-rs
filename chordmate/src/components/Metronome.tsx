@@ -1,5 +1,6 @@
 import { useMetronome } from "../hooks/useMetronome";
 import Button from "./Button.tsx";
+import { INPUT_CLASSES } from "./inputClasses.ts";
 import { forwardRef, useImperativeHandle, useState } from "react";
 
 export type MetronomeHandle = {
@@ -30,27 +31,22 @@ export const Metronome = forwardRef<MetronomeHandle>((_, ref) => {
   );
 
   return (
-    <div className="flex items-center gap-2 p-2 border rounded">
-      <Button variant="primary" onClick={running ? stop : start}>
+    <div className="flex flex-wrap items-center gap-2">
+      <Button variant="primary" className="min-w-20" onClick={running ? stop : start}>
         {running ? "Stop" : "Start"}
       </Button>
-
-      <label>
-        BPM:
+      <label className="flex items-center gap-2">
+        BPM
         <input
           type="number"
           value={bpm}
           min={30}
           max={300}
           onChange={(e) => setBpm(Number(e.target.value))}
-          className="ml-1 w-16 px-1 border rounded"
+          className={`w-20 ${INPUT_CLASSES}`}
         />
       </label>
-      <Button
-        variant="secondary"
-        onClick={tap}
-        className={`transition-colors duration-100 ${blink ? "bg-green-500" : "bg-gray-300"}`}
-      >
+      <Button variant={blink ? "success" : "secondary"} onClick={tap}>
         Tap
       </Button>
     </div>

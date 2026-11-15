@@ -9,6 +9,8 @@ import startSpotifyOauthFlow from "../spotifyoauth";
 import useSong from "../hooks/useSong.ts";
 import { songLabel } from "../types/Song.ts";
 import { Modal } from "./Modal.tsx";
+import Button from "./Button.tsx";
+import { INPUT_CLASSES } from "./inputClasses.ts";
 
 export const SPOTIFY_SEARCH_TRACKS = gql`
   query SearchSpotifyTracks($query: String!) {
@@ -86,64 +88,58 @@ export default function SpotifySearch({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Modal onClose={onClose}>
-      <h2 className="text-xl font-semibold mb-2 p-4 text-gray-900 dark:text-gray-100">
-        Select Spotify Track
-      </h2>
-
-      <div className="px-4 mb-2">
+    <Modal label="Select Spotify track" onClose={onClose} className="h-full">
+      <div className="p-4 flex flex-col gap-3 border-b border-gray-200 dark:border-gray-700">
+        <h2 className="text-lg font-semibold">Select Spotify Track</h2>
         <input
           ref={inputRef}
+          type="search"
           value={query}
           onChange={(e: ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
           placeholder="Search Spotify tracks..."
-          className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className={`w-full ${INPUT_CLASSES}`}
         />
       </div>
 
-      {loading && <p className="px-4 text-gray-500 dark:text-gray-400 mb-2">Searching...</p>}
-      {error && <p className="px-4 text-red-500 mb-2">Error fetching tracks</p>}
+      {loading && <p className="px-4 pt-2 text-gray-500 dark:text-gray-400">Searching...</p>}
+      {error && <p className="px-4 pt-2 text-red-500">Error fetching tracks</p>}
 
-      <ul className="flex-1 overflow-auto px-4 space-y-2">
+      <ul className="flex-1 overflow-auto p-2">
         {data?.searchSpotifyTracks.map((track: SpotifyTrack) => (
-          <li
-            key={track.id}
-            onClick={() => {
-              setTrack(track);
-              onClose();
-            }}
-            className="flex items-center gap-3 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 cursor-pointer"
-          >
-            <img
-              src={track.albumArt ?? undefined}
-              alt={track.name}
-              className="w-12 h-12 rounded object-cover shrink-0"
-            />
-            <div className="flex flex-col overflow-hidden">
-              <span
-                className="font-medium text-gray-900 dark:text-gray-100 truncate"
-                title={track.name}
-              >
-                {track.name}
+          <li key={track.id}>
+            <button
+              type="button"
+              onClick={() => {
+                setTrack(track);
+                onClose();
+              }}
+              className="w-full text-left flex items-center gap-3 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 focus-visible:outline-2 focus-visible:outline-blue-500"
+            >
+              <img
+                src={track.albumArt ?? undefined}
+                alt=""
+                className="w-12 h-12 rounded object-cover shrink-0"
+              />
+              <span className="flex flex-col overflow-hidden">
+                <span className="font-medium truncate" title={track.name}>
+                  {track.name}
+                </span>
+                <span
+                  className="text-sm text-gray-500 dark:text-gray-400 truncate"
+                  title={track.artists.join(", ")}
+                >
+                  {track.artists.join(", ")}
+                </span>
               </span>
-              <span
-                className="text-sm text-gray-500 dark:text-gray-400 truncate"
-                title={track.artists.join(", ")}
-              >
-                {track.artists.join(", ")}
-              </span>
-            </div>
+            </button>
           </li>
         ))}
       </ul>
 
-      <div className="px-4 py-2">
-        <button
-          onClick={() => onClose()}
-          className="w-full px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded"
-        >
+      <div className="p-4 flex justify-end border-t border-gray-200 dark:border-gray-700">
+        <Button variant="secondary" onClick={onClose}>
           Cancel
-        </button>
+        </Button>
       </div>
     </Modal>
   );

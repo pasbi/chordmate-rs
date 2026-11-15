@@ -1,34 +1,16 @@
-import { useCallback, useState } from "react";
+import { type DeviceNumberSetting, useDeviceNumber } from "./useDeviceNumber";
 
-const STORAGE_KEY = "chordmate.sheetFontSize";
-export const MIN_SHEET_FONT_SIZE = 10;
-export const MAX_SHEET_FONT_SIZE = 40;
-const DEFAULT_SHEET_FONT_SIZE = 16;
-
-function clampFontSize(size: number) {
-  return Math.min(Math.max(Math.round(size), MIN_SHEET_FONT_SIZE), MAX_SHEET_FONT_SIZE);
-}
-
-function readStoredFontSize() {
-  try {
-    const stored = Number(localStorage.getItem(STORAGE_KEY));
-    return Number.isFinite(stored) && stored > 0 ? clampFontSize(stored) : DEFAULT_SHEET_FONT_SIZE;
-  } catch {
-    return DEFAULT_SHEET_FONT_SIZE;
-  }
-}
+const SHEET_FONT_SIZE: DeviceNumberSetting = {
+  storageKey: "chordmate.sheetFontSize",
+  defaultValue: 16,
+  min: 10,
+  max: 40,
+};
+export const MIN_SHEET_FONT_SIZE = SHEET_FONT_SIZE.min;
+export const MAX_SHEET_FONT_SIZE = SHEET_FONT_SIZE.max;
 
 /** Font size of the chord sheet in px, remembered per device. */
 export function useSheetFontSize() {
-  const [fontSize, setFontSizeState] = useState(readStoredFontSize);
-  const setFontSize = useCallback((size: number) => {
-    const clamped = clampFontSize(size);
-    setFontSizeState(clamped);
-    try {
-      localStorage.setItem(STORAGE_KEY, String(clamped));
-    } catch {
-      // Not remembered, e.g. in a private window.
-    }
-  }, []);
+  const { value: fontSize, setValue: setFontSize } = useDeviceNumber(SHEET_FONT_SIZE);
   return { fontSize, setFontSize };
 }

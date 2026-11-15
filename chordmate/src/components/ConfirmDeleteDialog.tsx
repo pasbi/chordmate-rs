@@ -40,18 +40,19 @@ export function ConfirmDeleteDialog({ onClose }: { onClose: () => void }) {
   const { song } = useSong(id);
 
   return (
-    <Modal onClose={onClose}>
-      <h2 className="text-xl font-semibold mb-2 p-4 text-gray-900 dark:text-gray-100">
-        Delete {labelSong(song)}?
-      </h2>
-      <p>This action cannot be undone.</p>
-
-      <Button variant="danger" onClick={handleConfirm}>
-        Delete
-      </Button>
-      <Button variant="primary" onClick={onClose}>
-        Cancel
-      </Button>
+    <Modal label="Delete song" onClose={onClose}>
+      <div className="p-4 flex flex-col gap-4">
+        <h2 className="text-lg font-semibold">Delete {labelSong(song)}?</h2>
+        <p className="text-gray-700 dark:text-gray-300">This cannot be undone.</p>
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={handleConfirm}>
+            Delete
+          </Button>
+        </div>
+      </div>
     </Modal>
   );
 }

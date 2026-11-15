@@ -1,9 +1,10 @@
 import { EditorContent, Extension, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { Decoration, DecorationSet } from "prosemirror-view";
+import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
 import { Plugin, PluginKey, EditorState } from "prosemirror-state";
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { detectChords, detectSectionHeader } from "../lib/analyzeLine.ts";
+import { isTypingTarget } from "../lib/isTypingTarget.ts";
 
 function decorations(state: EditorState) {
   const decorations: Decoration[] = [];
@@ -53,24 +54,28 @@ const ChordDecorations = Extension.create({
   },
 });
 
-/** Width of one character of `element`'s (monospace) font, relative to the font size. */
-function characterWidthRatio(element: HTMLElement) {
-  const context = document.createElement("canvas").getContext("2d");
-  if (!context) {
-    return 0.6;
+/** Shown in an empty sheet while editing, to show the expected format. */
+const PLACEHOLDER = `[Verse 1]
+Am            F
+Lyrics go here, chords
+C             G
+above the syllable they belong to.
+
+[Chorus]
+...`;
+
+/**
+ * Pastes clipboard contents as plain text. Text copied from websites otherwise arrives as HTML,
+ * with formatting and paragraphs that break the chord sheet layout.
+ */
+function pasteAsPlainText(view: EditorView, event: ClipboardEvent) {
+  const text = event.clipboardData?.getData("text/plain");
+  if (!text) {
+    return false;
   }
-  context.font = `100px ${getComputedStyle(element).fontFamily}`;
-  return context.measureText("M").width / 100;
+  view.dispatch(view.state.tr.insertText(text.replace(/\r\n?/g, "\n")));
+  return true;
 }
-
-function longestLineLength(text: string) {
-  return Math.max(0, ...text.split("\n").map((line) => line.length));
-}
-
-export type EditorHandle = {
-  /** The largest font size (px) at which the longest line fits without scrolling sideways. */
-  fittingFontSize: () => number | null;
-};
 
 interface EditorProps {
   content: string;
@@ -79,80 +84,69 @@ interface EditorProps {
   fontSize: number;
 }
 
-const Editor = forwardRef<EditorHandle, EditorProps>(
-  ({ content, onUpdate, editable, fontSize }, ref) => {
-    const editor = useEditor({
-      extensions: [StarterKit, ChordDecorations],
-      content,
-      onUpdate: ({ editor }) => onUpdate?.(editor.getText()),
-      editable,
-      parseOptions: {
-        preserveWhitespace: "full",
-      },
-    });
+export default function Editor({ content, onUpdate, editable, fontSize }: EditorProps) {
+  const [isEmpty, setIsEmpty] = useState(content.trim() === "");
+  const editor = useEditor({
+    extensions: [StarterKit, ChordDecorations],
+    content,
+    onUpdate: ({ editor }) => {
+      setIsEmpty(editor.isEmpty);
+      onUpdate?.(editor.getText());
+    },
+    editable,
+    parseOptions: {
+      preserveWhitespace: "full",
+    },
+    editorProps: {
+      handlePaste: pasteAsPlainText,
+    },
+  });
 
-    useEffect(() => {
-      editor.setEditable(editable);
-    }, [editor, editable]);
-    const editorScrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    editor.setEditable(editable);
+  }, [editor, editable]);
+  const editorScrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (isTypingTarget(e.target)) {
+        return;
+      }
 
-    useImperativeHandle(
-      ref,
-      () => ({
-        fittingFontSize: () => {
-          const container = editorScrollRef.current;
-          const lineLength = longestLineLength(editor.getText());
-          if (!container || lineLength === 0) {
-            return null;
-          }
-          return container.clientWidth / (lineLength * characterWidthRatio(editor.view.dom));
-        },
-      }),
-      [editor]
-    );
+      if (!editorScrollRef.current) return;
 
-    useEffect(() => {
-      const onKeyDown = (e: KeyboardEvent) => {
-        // Ignore if user is typing text
-        const target = e.target as HTMLElement;
+      const SCROLL_STEP = 60;
 
-        if (
-          target instanceof HTMLInputElement ||
-          target instanceof HTMLTextAreaElement ||
-          target.isContentEditable
-        ) {
-          return;
-        }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        editorScrollRef.current.scrollBy({ top: SCROLL_STEP });
+      }
 
-        if (!editorScrollRef.current) return;
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        editorScrollRef.current.scrollBy({ top: -SCROLL_STEP });
+      }
+    };
 
-        const SCROLL_STEP = 60;
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
-        if (e.key === "ArrowDown") {
-          e.preventDefault();
-          editorScrollRef.current.scrollBy({ top: SCROLL_STEP });
-        }
-
-        if (e.key === "ArrowUp") {
-          e.preventDefault();
-          editorScrollRef.current.scrollBy({ top: -SCROLL_STEP });
-        }
-      };
-
-      window.addEventListener("keydown", onKeyDown);
-      return () => window.removeEventListener("keydown", onKeyDown);
-    }, []);
-
-    // Lines never wrap: a wrapped lyric line would no longer line up with its chord line.
-    return (
-      <div ref={editorScrollRef} className="h-full overflow-auto" style={{ fontSize }}>
-        <EditorContent
-          editor={editor}
-          className="chord-sheet text-current outline-none font-mono"
-        />
-      </div>
-    );
-  }
-);
-
-export default Editor;
+  // Lines never wrap: a wrapped lyric line would no longer line up with its chord line.
+  const editModeClasses = editable
+    ? "rounded ring-2 ring-blue-500/60 bg-blue-50/50 dark:bg-blue-950/30"
+    : "";
+  return (
+    <div
+      ref={editorScrollRef}
+      className={`relative h-full overflow-auto p-2 ${editModeClasses}`}
+      style={{ fontSize }}
+    >
+      {editable && isEmpty && (
+        <pre className="absolute top-2 left-2 pointer-events-none font-mono text-gray-400 dark:text-gray-500">
+          {PLACEHOLDER}
+        </pre>
+      )}
+      <EditorContent editor={editor} className="chord-sheet text-current outline-none font-mono" />
+    </div>
+  );
+}

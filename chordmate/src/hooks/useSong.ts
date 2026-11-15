@@ -38,7 +38,6 @@ interface UpdateSongTrackData {
 //  - auto scroll synced to playback (simple: position/duration; later: timestamps per section)
 //  - transpose chords by semitones
 //  - focus the search block
-//  - space toggle start/pause even in spotifysearch
 //  - close search window after accepting a song
 //  - allow "Into", "Verse", "x[0-9]+" in chord lines
 //  - new songs should appear in edit-mode

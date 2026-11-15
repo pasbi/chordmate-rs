@@ -5,6 +5,7 @@ import { GET_SONGS } from "../graphql";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import SongForm from "./SongForm";
+import { INPUT_CLASSES } from "./inputClasses";
 
 type SortField = "id" | "title" | "artist";
 
@@ -64,9 +65,6 @@ export default function SongsList() {
   if (loading) return <p className="p-4">Loading songs...</p>;
   if (error) return <p className="p-4">Error: {error.message}</p>;
 
-  const inputClasses =
-    "p-2 rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800";
-
   return (
     <div className="w-full px-2 sm:px-4 md:max-w-xl md:mx-auto">
       <div className="sticky top-0 z-10 flex flex-wrap gap-2 py-2 bg-white dark:bg-gray-900">
@@ -75,13 +73,13 @@ export default function SongsList() {
           placeholder="Search title or artist"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className={`flex-1 min-w-40 ${inputClasses}`}
+          className={`flex-1 min-w-40 ${INPUT_CLASSES}`}
         />
         <select
           aria-label="Sort by"
           value={sortField}
           onChange={(e) => setSortField(e.target.value as SortField)}
-          className={inputClasses}
+          className={INPUT_CLASSES}
         >
           {Object.entries(SORT_FIELD_LABELS).map(([field, label]) => (
             <option key={field} value={field}>
@@ -93,7 +91,7 @@ export default function SongsList() {
           type="button"
           title={sortAscending ? "Ascending" : "Descending"}
           onClick={() => setSortAscending(!sortAscending)}
-          className={`w-10 ${inputClasses}`}
+          className={`w-10 ${INPUT_CLASSES}`}
         >
           {sortAscending ? "↑" : "↓"}
         </button>

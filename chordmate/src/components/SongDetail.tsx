@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import Editor, { type EditorHandle } from "../components/Editor";
+import Editor from "../components/Editor";
 import SpotifyPlayer from "./SpotifyPlayer";
 import useSong from "../hooks/useSong";
 import useTrackInfo from "../hooks/useTrackInfo";
@@ -11,6 +11,9 @@ import Button from "./Button.tsx";
 import type Song from "../types/Song.ts";
 import { Metronome, type MetronomeHandle } from "./Metronome.tsx";
 import { useKeepScreenOn } from "../hooks/useKeepScreenOn";
+import { Popover } from "./Popover.tsx";
+import { NavBarPortal } from "./NavBarPortal.tsx";
+import { usePlayerVolume } from "../hooks/usePlayerVolume";
 import {
   MAX_SHEET_FONT_SIZE,
   MIN_SHEET_FONT_SIZE,
@@ -46,10 +49,8 @@ export default function SongDetail() {
   const [editedContent, setEditedContent] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const [metronomeOpen, setMetronomeOpen] = useState(false);
-  const [fontSizeOpen, setFontSizeOpen] = useState(false);
+  const { volume, setVolume } = usePlayerVolume();
   const { fontSize, setFontSize } = useSheetFontSize();
-  const editorRef = useRef<EditorHandle>(null);
   const { accessToken } = useAccessToken();
   const trackInfo = useTrackInfo(song?.spotifyTrack ?? "", accessToken);
   const [editMode, setEditMode] = useState(false);
@@ -113,84 +114,125 @@ export default function SongDetail() {
 
   const albumArtUrl = song.albumArtUrl ?? trackInfo?.albumArtUrl;
 
-  const header = (
-    <div className="flex items-center gap-2 sm:gap-3">
+  const volumePopover = (
+    <Popover
+      label="Volume"
+      renderTrigger={(toggle, open) => (
+        <Button
+          variant="secondary"
+          size="icon"
+          title="Volume"
+          aria-expanded={open}
+          onClick={toggle}
+        >
+          🔊
+        </Button>
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value={volume}
+          aria-label="Volume"
+          onChange={(e) => setVolume(Number(e.target.value))}
+          className="w-40"
+        />
+        <span className="min-w-[4.5ch] shrink-0 text-right text-sm tabular-nums">{volume}%</span>
+      </div>
+    </Popover>
+  );
+
+  const fontSizePopover = (
+    <Popover
+      label="Font size"
+      renderTrigger={(toggle, open) => (
+        <Button
+          variant="secondary"
+          size="icon"
+          title="Font size"
+          aria-expanded={open}
+          onClick={toggle}
+        >
+          Aa
+        </Button>
+      )}
+    >
+      <div className="flex items-center gap-2">
+        <Button
+          variant="secondary"
+          title="Smaller"
+          disabled={fontSize <= MIN_SHEET_FONT_SIZE}
+          onClick={() => setFontSize(fontSize - 1)}
+        >
+          −
+        </Button>
+        <span className="min-w-[4.5ch] shrink-0 text-center tabular-nums">{fontSize}px</span>
+        <Button
+          variant="secondary"
+          title="Larger"
+          disabled={fontSize >= MAX_SHEET_FONT_SIZE}
+          onClick={() => setFontSize(fontSize + 1)}
+        >
+          +
+        </Button>
+      </div>
+    </Popover>
+  );
+
+  // The metronome stays mounted while the popover is closed: it keeps running, and the BPM
+  // is read from and written to it.
+  const metronomePopover = (
+    <Popover
+      label="Metronome"
+      renderTrigger={(toggle, open) => (
+        <Button
+          variant="secondary"
+          size="icon"
+          title="Metronome"
+          aria-expanded={open}
+          onClick={toggle}
+        >
+          ♩
+        </Button>
+      )}
+    >
+      <Metronome ref={metronomeRef} />
+    </Popover>
+  );
+
+  // Lives in the navigation bar to save vertical space; the popovers open below the bar.
+  const toolbar = (
+    <NavBarPortal>
       {albumArtUrl && (
+        // Hidden on phones, where the title needs the space.
         <img
-          className="w-10 h-10 sm:w-14 sm:h-14 rounded object-cover shrink-0"
+          className="hidden sm:block w-9 h-9 rounded object-cover shrink-0"
           src={albumArtUrl}
           alt="Album art"
         />
       )}
-      <div className="flex-1 min-w-0">
-        <h1 className="text-lg sm:text-xl font-bold truncate text-gray-900 dark:text-gray-100">
+      <div className="flex-1 min-w-0 leading-tight">
+        <h1 className="font-semibold truncate">
           {editMode && "Editing: "}
           {song.title || "Untitled"}
         </h1>
-        <p className="truncate text-gray-700 dark:text-gray-300">{song.artist}</p>
+        <p className="text-xs truncate text-gray-600 dark:text-gray-400">{song.artist}</p>
       </div>
-      <Button
-        variant="secondary"
-        title="Font size"
-        aria-pressed={fontSizeOpen}
-        onClick={() => setFontSizeOpen(!fontSizeOpen)}
-      >
-        Aa
-      </Button>
-      <Button
-        variant="secondary"
-        title="Metronome"
-        aria-pressed={metronomeOpen}
-        onClick={() => setMetronomeOpen(!metronomeOpen)}
-      >
-        ♩
-      </Button>
+      {volumePopover}
+      {fontSizePopover}
+      {metronomePopover}
       {editMode ? (
         <Button variant="success" onClick={finishEditing}>
-          {hasUnsavedChanges ? "Save & close" : "Done"}
+          {hasUnsavedChanges ? "Save" : "Done"}
         </Button>
       ) : (
         <Button variant="primary" onClick={() => setEditMode(true)}>
           Edit
         </Button>
       )}
-    </div>
-  );
-
-  const fitFontSize = () => {
-    const fitting = editorRef.current?.fittingFontSize();
-    if (fitting) {
-      setFontSize(Math.floor(fitting));
-    }
-  };
-
-  const fontSizeControls = fontSizeOpen && (
-    <div className="flex items-center gap-2">
-      <Button
-        variant="secondary"
-        title="Smaller"
-        disabled={fontSize <= MIN_SHEET_FONT_SIZE}
-        onClick={() => setFontSize(fontSize - 1)}
-      >
-        A−
-      </Button>
-      <span className="w-12 text-center tabular-nums">{fontSize}px</span>
-      <Button
-        variant="secondary"
-        title="Larger"
-        disabled={fontSize >= MAX_SHEET_FONT_SIZE}
-        onClick={() => setFontSize(fontSize + 1)}
-      >
-        A+
-      </Button>
-      <Button
-        variant="secondary"
-        title="Largest size at which the longest line fits the width"
-        onClick={fitFontSize}
-      >
-        Fit width
-      </Button>
-    </div>
+    </NavBarPortal>
   );
 
   const editActions = editMode && (
@@ -209,19 +251,13 @@ export default function SongDetail() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="shrink-0 flex flex-col gap-2 p-2 md:p-4 border-b border-gray-200 dark:border-gray-700">
-        {header}
-        <SpotifyPlayer trackId={song.spotifyTrack} enableShortcuts={!editMode} />
-        {/* Kept mounted while hidden: the BPM is read from and written to it. */}
-        <div className={metronomeOpen ? "" : "hidden"}>
-          <Metronome ref={metronomeRef} />
-        </div>
-        {fontSizeControls}
+      {toolbar}
+      <div className="shrink-0 flex flex-col gap-2 px-2 py-1.5 md:px-4 border-b border-gray-200 dark:border-gray-700">
+        <SpotifyPlayer trackId={song.spotifyTrack} enableShortcuts={!editMode} volume={volume} />
         {editActions}
       </div>
-      <div className="flex-1 min-h-0 p-2 md:p-4">
+      <div className="flex-1 min-h-0 p-1 md:p-3">
         <Editor
-          ref={editorRef}
           content={song.content}
           onUpdate={setEditedContent}
           editable={editMode}

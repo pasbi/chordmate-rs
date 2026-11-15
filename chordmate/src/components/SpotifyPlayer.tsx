@@ -2,6 +2,7 @@ import { type AccessTokenStatus, useAccessToken } from "../hooks/useAccessToken"
 import { useSpotifyPlayer } from "../hooks/useSpotifyPlayer";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import type { SpotifyPlaybackState } from "../types/global";
+import { isTypingTarget } from "../lib/isTypingTarget";
 
 type Milliseconds = number & { readonly __unit: "ms" };
 type Seconds = number & { readonly __unit: "s" };
@@ -42,6 +43,22 @@ function sliderToVolume(sliderValue: number) {
   return (Math.exp((steepness * sliderValue) / 100) - 1) / (Math.exp(steepness) - 1);
 }
 
+function PlayIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="w-4 h-4" fill="currentColor" aria-hidden="true">
+      <path d="M4 2.5v11l9.5-5.5z" />
+    </svg>
+  );
+}
+
+function PauseIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="w-4 h-4" fill="currentColor" aria-hidden="true">
+      <path d="M3.5 2.5h3v11h-3zM9.5 2.5h3v11h-3z" />
+    </svg>
+  );
+}
+
 function ControlButton({
   onClick,
   title,
@@ -55,14 +72,14 @@ function ControlButton({
 }) {
   const colors =
     variant === "primary"
-      ? "min-w-18 bg-blue-500 hover:bg-blue-600 text-white"
-      : "min-w-10 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600";
+      ? "min-w-12 bg-blue-500 hover:bg-blue-600 text-white"
+      : "min-w-9 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600";
   return (
     <button
       type="button"
       title={title}
       onClick={onClick}
-      className={`h-10 px-2 rounded font-medium tabular-nums ${colors}`}
+      className={`h-8 px-1.5 flex items-center justify-center rounded text-sm font-medium tabular-nums focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 ${colors}`}
     >
       {children}
     </button>
@@ -75,9 +92,12 @@ const POLL_INTERVAL_MS = 500;
 export default function SpotifyPlayer({
   trackId,
   enableShortcuts,
+  volume,
 }: {
   trackId: string;
   enableShortcuts: boolean;
+  /** Linear slider value, 0–100. */
+  volume: number;
 }) {
   const { accessToken, status: accessTokenStatus } = useAccessToken();
   const statusMessage = accessTokenStatusMessage(accessTokenStatus);
@@ -107,18 +127,16 @@ export default function SpotifyPlayer({
     }, SLIDER_SEEK_DELAY_MS);
   };
 
-  const [volume, setVolume] = useState(50); // in %
-  const volumeTimeout = useRef<number | null>(null);
-  const [showVolumeSlider, setShowVolumeSlider] = useState<boolean>(false);
-  const setVolumePlayer = (newVolume: number) => {
-    setVolume(newVolume);
-    if (volumeTimeout.current) {
-      clearTimeout(volumeTimeout.current);
+  // Applied with a delay, so that dragging the volume slider doesn't flood the player with calls.
+  useEffect(() => {
+    if (!player) {
+      return;
     }
-    volumeTimeout.current = setTimeout(() => {
-      player?.setVolume(sliderToVolume(newVolume)).catch(console.error);
+    const timeout = setTimeout(() => {
+      player.setVolume(sliderToVolume(volume)).catch(console.error);
     }, SLIDER_SEEK_DELAY_MS);
-  };
+    return () => clearTimeout(timeout);
+  }, [player, volume]);
 
   useEffect(() => {
     if (!player) return;
@@ -205,7 +223,7 @@ export default function SpotifyPlayer({
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (!enableShortcuts) {
+      if (!enableShortcuts || isTypingTarget(e.target)) {
         return;
       }
       switch (e.key) {
@@ -225,106 +243,73 @@ export default function SpotifyPlayer({
     return () => window.removeEventListener("keydown", handler);
   }, [enableShortcuts, togglePlay, seekBy]);
 
-  const volumeContainerRef = useRef<HTMLDivElement | null>(null);
-  const volumeButtonRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (!(event.target instanceof Node)) {
-        return;
-      }
-      if (
-        !volumeContainerRef.current?.contains(event.target) &&
-        !volumeButtonRef.current?.contains(event.target)
-      ) {
-        setShowVolumeSlider(false);
-      }
-    };
-
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, []);
-
+  // One row, buttons left of the slider. Only when the slider would get narrower than its basis
+  // does it wrap onto its own full-width line below the buttons.
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-1">
       {statusMessage && (
-        <p className="text-sm text-amber-700 dark:text-amber-400">{statusMessage}</p>
+        <p className="text-xs text-amber-700 dark:text-amber-400">{statusMessage}</p>
       )}
-      <div className="flex items-center gap-2">
-        <span className="text-sm tabular-nums text-gray-700 dark:text-gray-300">
-          {formatTime(position as Milliseconds)}
-        </span>
-        <input
-          className="flex-1 h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-600"
-          type="range"
-          min={0}
-          max={duration}
-          value={position}
-          onChange={(e) => handleSliderChange(Number(e.target.value))}
-        />
-        <span className="text-sm tabular-nums text-gray-700 dark:text-gray-300">
-          {formatTime(duration as Milliseconds)}
-        </span>
-      </div>
+      <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
+        <div className="flex flex-1 basis-40 items-center gap-2">
+          <span className="text-xs tabular-nums text-gray-700 dark:text-gray-300">
+            {formatTime(position as Milliseconds)}
+          </span>
+          <input
+            className="flex-1 h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-600"
+            type="range"
+            aria-label="Position"
+            min={0}
+            max={duration}
+            value={position}
+            onChange={(e) => handleSliderChange(Number(e.target.value))}
+          />
+          <span className="text-xs tabular-nums text-gray-700 dark:text-gray-300">
+            {formatTime(duration as Milliseconds)}
+          </span>
+        </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-2">
-        <ControlButton variant="secondary" title="Back to start" onClick={seekStart}>
-          ⇤
-        </ControlButton>
-        <ControlButton
-          variant="secondary"
-          title="Back 10 s (Ctrl+←)"
-          onClick={() => seekBy(-10 as Seconds)}
-        >
-          −10
-        </ControlButton>
-        <ControlButton
-          variant="secondary"
-          title="Back 1 s (←)"
-          onClick={() => seekBy(-1 as Seconds)}
-        >
-          −1
-        </ControlButton>
-        <ControlButton variant="primary" title="Play / pause (Space)" onClick={togglePlay}>
-          {paused ? "Play" : "Pause"}
-        </ControlButton>
-        <ControlButton
-          variant="secondary"
-          title="Forward 1 s (→)"
-          onClick={() => seekBy(1 as Seconds)}
-        >
-          +1
-        </ControlButton>
-        <ControlButton
-          variant="secondary"
-          title="Forward 10 s (Ctrl+→)"
-          onClick={() => seekBy(10 as Seconds)}
-        >
-          +10
-        </ControlButton>
-        <div ref={volumeButtonRef}>
+        <div className="flex items-center gap-1 order-first">
+          <ControlButton variant="secondary" title="Back to start" onClick={seekStart}>
+            ⇤
+          </ControlButton>
           <ControlButton
             variant="secondary"
-            title="Volume"
-            onClick={() => setShowVolumeSlider(!showVolumeSlider)}
+            title="Back 10 s (Ctrl+←)"
+            onClick={() => seekBy(-10 as Seconds)}
           >
-            🔊
+            −10
+          </ControlButton>
+          <ControlButton
+            variant="secondary"
+            title="Back 1 s (←)"
+            onClick={() => seekBy(-1 as Seconds)}
+          >
+            −1
+          </ControlButton>
+          <ControlButton
+            variant="primary"
+            title={paused ? "Play (Space)" : "Pause (Space)"}
+            onClick={togglePlay}
+          >
+            {paused ? <PlayIcon /> : <PauseIcon />}
+          </ControlButton>
+          <ControlButton
+            variant="secondary"
+            title="Forward 1 s (→)"
+            onClick={() => seekBy(1 as Seconds)}
+          >
+            +1
+          </ControlButton>
+          <ControlButton
+            variant="secondary"
+            title="Forward 10 s (Ctrl+→)"
+            onClick={() => seekBy(10 as Seconds)}
+          >
+            +10
           </ControlButton>
         </div>
       </div>
-
-      {showVolumeSlider && (
-        <div ref={volumeContainerRef} className="flex items-center gap-2">
-          <input
-            type="range"
-            min="0"
-            max="100"
-            value={volume}
-            onChange={(e) => setVolumePlayer(Number(e.target.value))}
-            className="flex-1 h-2 rounded-lg bg-gray-300 dark:bg-gray-600"
-          />
-          <span className="text-sm tabular-nums text-gray-700 dark:text-gray-300">{volume}%</span>
-        </div>
-      )}
     </div>
   );
 }
