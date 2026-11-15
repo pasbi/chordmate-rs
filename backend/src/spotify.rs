@@ -36,6 +36,8 @@ impl StoredToken {
 
 pub struct SpotifyClient {
     token_cache: Mutex<Option<StoredToken>>,
+    /// Shared, so that requests reuse connections.
+    http: Client,
     database_connection: DatabaseConnection,
     client_id: String,
     client_secret: String,
@@ -77,6 +79,7 @@ impl SpotifyClient {
     pub fn new(database_connection: DatabaseConnection) -> Self {
         let client = SpotifyClient {
             token_cache: Mutex::new(None),
+            http: Client::new(),
             database_connection,
             client_id: required_env_var("SPOTIFY_CLIENT_ID"),
             client_secret: required_env_var("SPOTIFY_CLIENT_SECRET"),
@@ -98,7 +101,8 @@ impl SpotifyClient {
 
     /// Posts `params` to Spotify's token endpoint.
     async fn request_token(&self, params: &[(&str, &str)]) -> Result<TokenResponse, TokenError> {
-        let resp = Client::new()
+        let resp = self
+            .http
             .post("https://accounts.spotify.com/api/token")
             .form(params)
             .send()
@@ -231,8 +235,8 @@ impl SpotifyClient {
     pub async fn search_tracks(&self, query: &str) -> FieldResult<Value> {
         info!("Spotify: search tracks '{}'", query);
         let token = self.access_token().await?;
-        let client = Client::new();
-        let res = client
+        let res = self
+            .http
             .get("https://api.spotify.com/v1/search")
             .query(&[("q", query), ("type", "track")])
             .bearer_auth(token)

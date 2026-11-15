@@ -16,15 +16,9 @@ pub struct QLQuery {
 impl QLQuery {
     pub async fn songs(&self) -> FieldResult<Vec<Song>> {
         let client = self.database_connection.get().await?;
-        let statement = client
-            .prepare("SELECT * FROM songs")
-            .await
-            .expect("SQL query preparation failed");
+        let statement = client.prepare("SELECT * FROM songs").await?;
 
-        let rows: Vec<Row> = client
-            .query(&statement, &[])
-            .await
-            .expect("SQL query failed");
+        let rows: Vec<Row> = client.query(&statement, &[]).await?;
 
         rows.iter()
             .map(|row| {
@@ -64,7 +58,7 @@ impl QLQuery {
                     album_art: item
                         .get("album")
                         .and_then(|album| album.get("images"))
-                        .and_then(|images| images.as_array()?.get(0))
+                        .and_then(|images| images.as_array()?.first())
                         .and_then(|img| img.get("url"))
                         .and_then(|v| v.as_str().map(String::from)),
                 })

@@ -21,13 +21,13 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tower_http::cors::{Any, CorsLayer};
-use tower_http::services::fs::ServeDir;
 
 type Schema = RootNode<QLQuery, QLMutation, EmptySubscription>;
 async fn homepage() -> Html<&'static str> {
-    "<html><h1>juniper_axum/simple example</h1>\
-           <div>visit <a href=\"/graphiql\">GraphiQL</a></div>\
-           <div>visit <a href=\"/playground\">GraphQL Playground</a></div>\
+    "<html><h1>ChordMate backend</h1>\
+           <div>GraphQL API at <a href=\"/graphql\">/graphql</a>, \
+           explore it with <a href=\"/graphiql\">GraphiQL</a> or \
+           <a href=\"/playground\">GraphQL Playground</a>.</div>\
     </html>"
         .into()
 }
@@ -84,7 +84,6 @@ fn router(query: QLQuery, mutation: QLMutation, spotify_client: Arc<SpotifyClien
 
     let schema = Schema::new(query, mutation, EmptySubscription::new());
     Router::new()
-        .nest_service("/static", ServeDir::new("../frontend/build/static"))
         .route(
             "/graphql",
             axum::routing::on(

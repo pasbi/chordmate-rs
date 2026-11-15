@@ -27,6 +27,6 @@ WORKDIR /app
 # Copy compiled binary
 COPY --from=builder /app/target/release/chordmate .
 
-# Expose backend port (optional)
-EXPOSE 8080
+# The port passed with --port (see docker-compose.yml)
+EXPOSE 3000
 ENTRYPOINT ["./chordmate"]

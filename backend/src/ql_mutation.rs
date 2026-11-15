@@ -15,13 +15,9 @@ impl QLMutation {
             .prepare(
                 "INSERT INTO songs (title, artist, content, spotify_track) VALUES ('', '', '', '') RETURNING id"
             )
-            .await
-            .expect("SQL query preparation failed.");
+            .await?;
 
-        let row = client
-            .query_one(&statement, &[])
-            .await
-            .expect("SQL query failed");
+        let row = client.query_one(&statement, &[]).await?;
 
         let id: i32 = row.try_get("id")?;
         Ok(id)
@@ -29,10 +25,7 @@ impl QLMutation {
 
     async fn delete_song(&self, id: i32) -> FieldResult<bool> {
         let client = self.database_connection.get().await?;
-        let statement = client
-            .prepare("DELETE FROM songs WHERE id = $1;")
-            .await
-            .expect("SQL query preparation failed.");
+        let statement = client.prepare("DELETE FROM songs WHERE id = $1;").await?;
         client.execute(&statement, &[&id]).await?;
         Ok(true)
     }
@@ -41,8 +34,7 @@ impl QLMutation {
         let client = self.database_connection.get().await?;
         let statement = client
             .prepare("UPDATE songs SET content = $2 WHERE id = $1 RETURNING id;")
-            .await
-            .expect("SQL query preparation failed.");
+            .await?;
         let row = client.query_one(&statement, &[&id, &content]).await?;
         Ok(row.try_get("id")?)
     }
@@ -51,8 +43,7 @@ impl QLMutation {
         let client = self.database_connection.get().await?;
         let statement = client
             .prepare("UPDATE songs SET spotify_track = $2 WHERE id = $1 RETURNING id;")
-            .await
-            .expect("SQL query preparation failed.");
+            .await?;
         let row = client.query_one(&statement, &[&id, &track]).await?;
         Ok(row.try_get("id")?)
     }
@@ -68,8 +59,7 @@ impl QLMutation {
         let client = self.database_connection.get().await?;
         let statement = client
             .prepare("UPDATE songs SET title = $2, artist = $3, album_art_url = $4, bpm = $5 WHERE id = $1 RETURNING id;")
-            .await
-            .expect("SQL query preparation failed.");
+            .await?;
         info!("Statement: {:?}, {:?}", statement, bpm);
         let row = client
             .query_one(&statement, &[&id, &title, &artist, &album_art_url, &bpm])
