@@ -14,6 +14,37 @@ html {
   touch-action: pan-x pan-y;
 }
 
+/* The playback position slider draws all of itself: the gray bar is the input's own background,
+   and the thumb a plain 16 px circle on every browser. Firefox for Android drew its own white,
+   shadowed thumb and its own track over the bar, and left 1 px unpainted gaps in the bar as the
+   thumb moved. Its own compositing layer makes the slider repaint as a whole. The marker strip
+   above the slider relies on the 16 px size. */
+.position-slider {
+  will-change: transform;
+}
+.position-slider::-moz-range-track,
+.position-slider::-moz-range-progress {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+.position-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 9999px;
+  background: var(--color-blue-500);
+}
+.position-slider::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: none;
+  border-radius: 9999px;
+  background: var(--color-blue-500);
+}
+
 /* The ChordPro source is edited like code: one source line per line. */
 .chord-sheet .ProseMirror {
   white-space: pre;

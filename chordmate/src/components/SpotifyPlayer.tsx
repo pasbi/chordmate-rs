@@ -424,7 +424,7 @@ export default function SpotifyPlayer({
               onListen={jumpAndPlay}
             />
             <input
-              className="w-full h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-600"
+              className="position-slider w-full h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-600"
               type="range"
               aria-label="Position"
               min={0}
