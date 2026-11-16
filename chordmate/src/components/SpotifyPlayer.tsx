@@ -61,6 +61,10 @@ function PauseIcon() {
   );
 }
 
+/** How long before a song's end playback is stopped, so that the next track doesn't start. */
+const END_MARGIN_MS = 500;
+/** When the song played this close to its end, another track starting is the album playing on. */
+const END_WINDOW_MS = 5000;
 const SLIDER_SEEK_DELAY_MS = 300;
 const DISPLAY_TICK_MS = 250;
 
@@ -371,6 +375,45 @@ export default function SpotifyPlayer({
     bookmarks.setActiveId(bookmark?.id ?? null);
     seekInTrack(bookmark ? bookmark.positionMs : lastPlayStartMs);
   };
+
+  // A song is started within its album (see startPlaybackInAlbum), so the album would play on
+  // after it. Instead, playback stops at the song's end and returns to its start, like a player
+  // at the end of a playlist.
+  const stopAtEnd = useCallback(() => {
+    if (!playback) {
+      return;
+    }
+    playback
+      .pause()
+      .then(() => seekInTrack(0))
+      .catch(console.error);
+  }, [playback, seekInTrack]);
+
+  useEffect(() => {
+    // A duration of 0 means not known yet (e.g. right after starting).
+    if (state === null || state.paused || state.duration <= 0) {
+      return;
+    }
+    const playedSinceSample = performance.now() - sample.takenAt;
+    const untilEnd = state.duration - state.position - playedSinceSample - END_MARGIN_MS;
+    const timeout = setTimeout(stopAtEnd, Math.max(untilEnd, 0));
+    return () => clearTimeout(timeout);
+  }, [state, sample.takenAt, stopAtEnd]);
+
+  // In case the timer came too late (e.g. throttled in the background): when the song was about
+  // to end and the next track took over, that track is paused.
+  const wasEnding = useRef(false);
+  useEffect(() => {
+    if (state !== null) {
+      wasEnding.current =
+        !state.paused && state.duration > 0 && state.duration - state.position < END_WINDOW_MS;
+      return;
+    }
+    if (wasEnding.current && sample.state !== null && !sample.state.paused) {
+      wasEnding.current = false;
+      playback?.pause().catch(console.error);
+    }
+  }, [state, sample, playback]);
 
   // The bookmark menu and editor take the keyboard while they are open.
   const [bookmarkOverlay, setBookmarkOverlay] = useState<BookmarkOverlay>(null);
