@@ -87,7 +87,7 @@ function ActiveRadio({
       aria-label={`Jump to ${label} with ↺`}
       checked={checked}
       onChange={onSelect}
-      className="w-4 h-4 shrink-0 accent-blue-500"
+      className="w-4 h-4 shrink-0 accent-amber-500"
     />
   );
 }

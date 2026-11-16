@@ -7,9 +7,6 @@ import { BookmarkManager } from "./BookmarkManager";
 import { FloatingMenu, MENU_ITEM_CLASSES } from "./ContextMenu";
 import { ControlButton, SplitControlButton } from "./ControlButton";
 
-/** How far before a bookmark a jump starts, to get the hands ready. */
-const PRE_ROLL_MS = 2000;
-
 /** What covers the player: the bookmark menu or the manager. Player shortcuts pause meanwhile. */
 export type BookmarkOverlay = { kind: "menu"; anchor: DOMRect } | { kind: "manager" } | null;
 
@@ -29,34 +26,83 @@ function activeBookmark(bookmarks: Bookmarks) {
   return bookmarks.bookmarks.find((bookmark) => bookmark.id === bookmarks.activeId) ?? null;
 }
 
-/** Faint marks on the position slider where the bookmarks are; the active one is stronger. */
-export function BookmarkTicks({
+/** Colors ↺'s target wherever it is shown: its marker, its glyph, the active entry's dot. */
+export const JUMP_TARGET_TEXT_CLASSES = "text-amber-600 dark:text-amber-400";
+
+/** Points down at the position, for “Last play start” while it is ↺'s target. */
+function PlayStartMarker() {
+  return (
+    <svg viewBox="0 0 10 8" className="w-2.5 h-2" fill="currentColor" aria-hidden="true">
+      <path d="M0 0h10L5 8z" />
+    </svg>
+  );
+}
+
+/** The bookmark icon's shape, for the active bookmark. */
+function ActiveBookmarkMarker() {
+  return (
+    <svg viewBox="0 0 8 10" className="w-2 h-2.5" fill="currentColor" aria-hidden="true">
+      <path d="M0 0h8v10L4 7 0 10z" />
+    </svg>
+  );
+}
+
+/** The name shown for a bookmark, also when it has none. */
+function bookmarkName(bookmark: Bookmark) {
+  return bookmark.label || "Untitled";
+}
+
+/**
+ * Markers in a strip just above the position slider, out of the thumb's reach: a gray dot per
+ * bookmark, and an amber marker for ↺'s target, the active bookmark or the last play start.
+ * Clicking a dot makes that bookmark active; hovering a marker shows its name.
+ */
+export function BookmarkMarkers({
   bookmarks,
   durationMs,
+  lastPlayStartMs,
 }: {
   bookmarks: Bookmarks;
   durationMs: number;
+  lastPlayStartMs: number;
 }) {
   if (durationMs <= 0) {
     return null;
   }
-  // The slider's thumb center can't reach its edges: it moves within half a thumb (~16 px) from
-  // either end.
-  const tickLeft = (bookmark: Bookmark) =>
-    `calc(8px + (100% - 16px) * ${Math.min(bookmark.positionMs / durationMs, 1)})`;
+  // The thumb's center can't reach the slider's ends: it stays half a thumb (~16 px) away.
+  const markerLeft = (positionMs: number) =>
+    `calc(8px + (100% - 16px) * ${Math.min(positionMs / durationMs, 1)})`;
+  // Each marker sits at the bottom of a box larger than itself, so that a small dot is still
+  // easy to hit. The box only grows upward and sideways, never over the thumb below.
+  const hitBoxClasses =
+    "pointer-events-auto absolute bottom-0 -translate-x-1/2 w-5 h-4 flex items-end justify-center";
+  const active = activeBookmark(bookmarks);
   return (
-    <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-      {bookmarks.bookmarks.map((bookmark) => (
-        <div
-          key={bookmark.id}
-          style={{ left: tickLeft(bookmark) }}
-          className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 h-4 w-0.5 rounded-full ${
-            bookmark.id === bookmarks.activeId
-              ? "bg-blue-500/80 dark:bg-blue-400/80"
-              : "bg-gray-400/60 dark:bg-gray-500/70"
-          }`}
-        />
-      ))}
+    // The strip ends a thumb's half-height above the track's center, where the thumb ends.
+    <div className="pointer-events-none absolute inset-x-0 bottom-full mb-1 h-2">
+      {bookmarks.bookmarks
+        .filter((bookmark) => bookmark !== active)
+        .map((bookmark) => (
+          <button
+            key={bookmark.id}
+            type="button"
+            title={`${bookmarkName(bookmark)} – click to jump here with ↺`}
+            aria-label={`Make “${bookmarkName(bookmark)}” the bookmark ↺ jumps to`}
+            onClick={() => bookmarks.setActiveId(bookmark.id)}
+            style={{ left: markerLeft(bookmark.positionMs) }}
+            className={`group rounded focus-visible:outline-2 focus-visible:outline-blue-500 ${hitBoxClasses}`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500 group-hover:scale-150 group-hover:bg-amber-500 dark:group-hover:bg-amber-400 transition-transform" />
+          </button>
+        ))}
+      {/* Drawn last, so that no dot covers it. */}
+      <div
+        title={active ? bookmarkName(active) : LAST_PLAY_START_LABEL}
+        style={{ left: markerLeft(active ? active.positionMs : lastPlayStartMs) }}
+        className={`${hitBoxClasses} ${JUMP_TARGET_TEXT_CLASSES}`}
+      >
+        {active ? <ActiveBookmarkMarker /> : <PlayStartMarker />}
+      </div>
     </div>
   );
 }
@@ -95,7 +141,7 @@ function BookmarkMenu({
           onClick={() => select(entry.id)}
           className={`${MENU_ITEM_CLASSES} flex items-center gap-3`}
         >
-          <span className="w-3 text-blue-600 dark:text-blue-400" aria-hidden="true">
+          <span className={`w-3 ${JUMP_TARGET_TEXT_CLASSES}`} aria-hidden="true">
             {entry.id === bookmarks.activeId ? "●" : ""}
           </span>
           <span className="flex-1 truncate max-w-56">{entry.label || "Untitled"}</span>
@@ -114,8 +160,8 @@ function BookmarkMenu({
 
 /**
  * Adding a bookmark (🔖+, key B) and jumping to the active one (↺, key R), with a menu to choose
- * the active bookmark and open the manager. A jump to a bookmark starts a bit earlier; a jump to
- * where Play was last pressed starts exactly there.
+ * the active bookmark and open the manager. Jumps go exactly to the mark: bookmarks can be placed
+ * precisely, so they are taken as meant.
  */
 export function BookmarkControls({
   bookmarks,
@@ -156,8 +202,7 @@ export function BookmarkControls({
     }
   };
 
-  const jumpToActive = () =>
-    onJump(active ? Math.max(active.positionMs - PRE_ROLL_MS, 0) : lastPlayStartMs);
+  const jumpToActive = () => onJump(active ? active.positionMs : lastPlayStartMs);
 
   // Subscribes anew on every render, so that the handler always sees the current position.
   useEffect(() => {
@@ -181,7 +226,7 @@ export function BookmarkControls({
   });
 
   const jumpTitle = active
-    ? `Back to “${active.label || "Untitled"}” (R)`
+    ? `Back to “${bookmarkName(active)}” (R)`
     : `Back to where Play was last pressed, ${formatPosition(lastPlayStartMs)} (R)`;
 
   return (
@@ -198,7 +243,7 @@ export function BookmarkControls({
           onOverlayChange(overlay?.kind === "menu" ? null : { kind: "menu", anchor })
         }
       >
-        <span className="text-base leading-none">↺</span>
+        <span className={`text-base leading-none ${JUMP_TARGET_TEXT_CLASSES}`}>↺</span>
       </SplitControlButton>
       {overlay?.kind === "menu" && (
         <BookmarkMenu

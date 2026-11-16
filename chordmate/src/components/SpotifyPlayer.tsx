@@ -5,7 +5,7 @@ import type { Bookmarks } from "../hooks/useBookmarks";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isTypingTarget } from "../lib/isTypingTarget";
 import { formatTime, type Milliseconds, type Seconds } from "../lib/time";
-import { type BookmarkOverlay, BookmarkControls, BookmarkTicks } from "./BookmarkControls";
+import { type BookmarkOverlay, BookmarkControls, BookmarkMarkers } from "./BookmarkControls";
 import { ControlButton } from "./ControlButton";
 
 function trackIdToUri(trackId: string) {
@@ -312,7 +312,6 @@ export default function SpotifyPlayer({
     (delta: Seconds) => seekTo((current) => current.position + delta * 1000),
     [seekTo]
   );
-  const seekStart = () => seekTo(() => 0);
 
   /** Moves to a position in this song's track and plays, whatever the device did before. */
   const jumpAndPlay = useCallback(
@@ -382,12 +381,14 @@ export default function SpotifyPlayer({
           <span className="text-xs tabular-nums text-gray-700 dark:text-gray-300">
             {formatTime(position as Milliseconds)}
           </span>
-          {/* The bookmark ticks lie under the slider, taller than its track, so that the thumb
-              covers them as it passes. */}
           <div className="relative flex-1 flex items-center">
-            <BookmarkTicks bookmarks={bookmarks} durationMs={duration} />
+            <BookmarkMarkers
+              bookmarks={bookmarks}
+              durationMs={duration}
+              lastPlayStartMs={lastPlayStartMs}
+            />
             <input
-              className="relative w-full h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-600"
+              className="w-full h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-600"
               type="range"
               aria-label="Position"
               min={0}
@@ -401,44 +402,13 @@ export default function SpotifyPlayer({
           </span>
         </div>
 
-        <div className="flex items-center gap-1 order-first">
-          <ControlButton variant="secondary" title="Back to start" onClick={seekStart}>
-            ⇤
-          </ControlButton>
-          <ControlButton
-            variant="secondary"
-            title="Back 10 s (Ctrl+←)"
-            onClick={() => seekBy(-10 as Seconds)}
-          >
-            −10
-          </ControlButton>
-          <ControlButton
-            variant="secondary"
-            title="Back 1 s (←)"
-            onClick={() => seekBy(-1 as Seconds)}
-          >
-            −1
-          </ControlButton>
+        <div className="order-first">
           <ControlButton
             variant="primary"
             title={paused ? "Play (Space)" : "Pause (Space)"}
             onClick={togglePlay}
           >
             {paused ? <PlayIcon /> : <PauseIcon />}
-          </ControlButton>
-          <ControlButton
-            variant="secondary"
-            title="Forward 1 s (→)"
-            onClick={() => seekBy(1 as Seconds)}
-          >
-            +1
-          </ControlButton>
-          <ControlButton
-            variant="secondary"
-            title="Forward 10 s (Ctrl+→)"
-            onClick={() => seekBy(10 as Seconds)}
-          >
-            +10
           </ControlButton>
         </div>
         <BookmarkControls

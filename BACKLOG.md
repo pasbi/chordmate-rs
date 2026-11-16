@@ -6,8 +6,9 @@ Planned features and ideas, roughly in the order they are meant to be done.
 
 Bookmarks are implemented (see the README). Possible next steps:
 
-- Configurable pre-roll (now fixed at 2 s): off / 2 s / one bar from the BPM, possibly with a
-  metronome count-in.
+- Optional count-in before a jump (one bar from the BPM with the metronome), if starting
+  exactly at the mark turns out to be too abrupt. A fixed 2 s pre-roll was tried and dropped:
+  bookmarks can be placed precisely, so jumps go exactly there.
 - A–B loop between two bookmarks, with a repeat count.
 - Foot pedal support (page-turner pedals often send arrow keys or PageUp/PageDown, which
   collide with the seek shortcuts).
