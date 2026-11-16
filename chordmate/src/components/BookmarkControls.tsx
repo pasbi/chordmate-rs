@@ -195,7 +195,7 @@ export function BookmarkControls({
           onOverlayChange(overlay?.kind === "menu" ? null : { kind: "menu", anchor })
         }
       >
-        <span className={`text-base leading-none ${JUMP_TARGET_TEXT_CLASSES}`}>↺</span>
+        <span className={`text-2xl leading-none ${JUMP_TARGET_TEXT_CLASSES}`}>↺</span>
       </SplitControlButton>
       {overlay?.kind === "menu" && (
         <BookmarkMenu
