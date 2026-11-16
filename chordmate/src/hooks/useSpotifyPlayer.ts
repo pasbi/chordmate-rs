@@ -6,6 +6,12 @@ const SDK_URL = "https://sdk.scdn.co/spotify-player.js";
 /** Start of the name under which ChordMate's browser players appear as Spotify devices. */
 export const CHORDMATE_PLAYER_NAME_PREFIX = "ChordMate – ";
 
+/**
+ * How long a playback error stays visible. Unlike the other errors, it is about one refused
+ * command (e.g. “The operation is not allowed.”); the player keeps working.
+ */
+const PLAYBACK_ERROR_SHOWN_MS = 8000;
+
 const ERROR_EVENTS = [
   "initialization_error",
   "authentication_error",
@@ -48,6 +54,7 @@ export function useSpotifyPlayer(accessToken: string | null) {
     }
     let canceled = false;
     let createdPlayer: SpotifyPlayer | null = null;
+    let playbackErrorTimeout: number | null = null;
 
     const createPlayer = async () => {
       const newPlayer = new Spotify.Player({
@@ -73,8 +80,20 @@ export function useSpotifyPlayer(accessToken: string | null) {
       for (const event of ERROR_EVENTS) {
         newPlayer.addListener(event, ({ message }) => {
           console.error(`Spotify player ${event}: ${message}`);
-          if (!canceled) {
-            setError(message);
+          if (canceled) {
+            return;
+          }
+          setError(message);
+          if (playbackErrorTimeout !== null) {
+            clearTimeout(playbackErrorTimeout);
+            playbackErrorTimeout = null;
+          }
+          if (event === "playback_error") {
+            playbackErrorTimeout = window.setTimeout(() => {
+              playbackErrorTimeout = null;
+              // Unless a lasting error replaced it meanwhile.
+              setError((current) => (current === message ? null : current));
+            }, PLAYBACK_ERROR_SHOWN_MS);
           }
         });
       }
@@ -105,6 +124,9 @@ export function useSpotifyPlayer(accessToken: string | null) {
 
     return () => {
       canceled = true;
+      if (playbackErrorTimeout !== null) {
+        clearTimeout(playbackErrorTimeout);
+      }
       window.removeEventListener("pagehide", disconnectOnPageHide);
       createdPlayer?.disconnect();
       setPlayer(null);
