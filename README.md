@@ -19,11 +19,14 @@ browser, and a BPM with a metronome.
 - Seeking with the arrow keys (±1 s, with Ctrl ±10 s), metronome with tap tempo, and per-device font
   size and volume; the screen stays on while a song is open.
 - Bookmarks to practice a passage: 🔖+ (or `B`) marks the current position, ↺ (or
-  `R`) jumps back to the active bookmark and plays. The ▾ menu chooses
-  the active bookmark; “Manage bookmarks…” renames, shifts, plays and deletes
-  them. Bookmarks belong to the song's current Spotify track: linking another
-  track hides them, linking the old one again brings them back. With no
-  bookmark active, ↺ returns to where Play was last pressed.
+  `R`) jumps back to the active bookmark and plays. Markers above the slider
+  show the bookmarks, the active one in amber with its name. Clicking a marker
+  (or choosing it in the ▾ menu) makes it active and moves there;
+  right-clicking or long-pressing it renames, shifts, plays or deletes it. A
+  bookmark without a name shows its current time.
+  Bookmarks belong to the song's current Spotify track: linking another track
+  hides them, linking the old one again brings them back. With no bookmark
+  active, ↺ returns to where Play was last pressed.
 - Song list with search, sorting (remembered per device) and grouping by artist.
 - Light/dark theme following the system setting.
 

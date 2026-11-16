@@ -1,4 +1,5 @@
 import { type CSSProperties, type ReactNode, useEffect, useRef } from "react";
+import { isTypingTarget } from "../lib/isTypingTarget";
 
 export type ContextMenuItem = {
   label: string;
@@ -18,18 +19,21 @@ export const MENU_ITEM_CLASSES =
   "focus-visible:outline-none focus-visible:bg-gray-100 dark:focus-visible:bg-gray-700";
 
 /**
- * A menu at a screen position, with any items; closes on a click elsewhere, Escape, scrolling or
- * resizing. Focuses its first item, so that it can be used with the keyboard.
+ * A menu (or a small dialog) at a screen position, with any content; closes on a click elsewhere,
+ * Escape, scrolling or resizing. Focuses its first button, so that it can be used with the
+ * keyboard.
  */
 export function FloatingMenu({
   x,
   y,
+  role,
   label,
   onClose,
   children,
 }: {
   x: number;
   y: number;
+  role: "menu" | "dialog";
   label: string;
   onClose: () => void;
   children: ReactNode;
@@ -57,23 +61,29 @@ export function FloatingMenu({
         onClose();
       }
     };
+    // On a phone, the on-screen keyboard resizes the window: typing must not close a dialog.
+    const closeOnResize = () => {
+      if (!isTypingTarget(document.activeElement)) {
+        onClose();
+      }
+    };
     document.addEventListener("pointerdown", closeOnOutsidePointer);
     document.addEventListener("keydown", closeOnEscape);
     // Capturing, to also notice scrolling inside nested containers.
     window.addEventListener("scroll", closeOnOutsideScroll, true);
-    window.addEventListener("resize", onClose);
+    window.addEventListener("resize", closeOnResize);
     return () => {
       document.removeEventListener("pointerdown", closeOnOutsidePointer);
       document.removeEventListener("keydown", closeOnEscape);
       window.removeEventListener("scroll", closeOnOutsideScroll, true);
-      window.removeEventListener("resize", onClose);
+      window.removeEventListener("resize", closeOnResize);
     };
   }, [onClose]);
 
   return (
     <div
       ref={menuRef}
-      role="menu"
+      role={role}
       aria-label={label}
       style={menuPosition(x, y)}
       className="fixed z-50 min-w-40 max-h-[70vh] overflow-y-auto py-1 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
@@ -96,7 +106,7 @@ export function ContextMenu({
   onClose: () => void;
 }) {
   return (
-    <FloatingMenu x={x} y={y} label="Actions" onClose={onClose}>
+    <FloatingMenu x={x} y={y} role="menu" label="Actions" onClose={onClose}>
       {items.map((item) => (
         <button
           key={item.label}

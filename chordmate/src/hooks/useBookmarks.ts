@@ -134,6 +134,8 @@ function useActiveBookmarkId(songId: number, spotifyTrack: string, bookmarks: Bo
 
 export type Bookmarks = ReturnType<typeof useBookmarks>;
 
+type RemovedBookmark = { bookmark: Bookmark; wasActive: boolean; spotifyTrack: string };
+
 /**
  * The bookmarks of a song in its current Spotify track, sorted by position, and which one is
  * active. Bookmarks of other tracks stay stored and come back when their track is linked again.
@@ -180,12 +182,45 @@ export function useBookmarks(songId: number, spotifyTrack: string) {
       optimisticResponse: { updateBookmark: { __typename: "Bookmark", ...bookmark } },
     });
 
-  const remove = (bookmark: Bookmark) =>
-    deleteMutation({
+  // The last deleted bookmark, which can be restored; tagged with its track, so that it isn't
+  // offered for another one.
+  const [removed, setRemoved] = useState<RemovedBookmark | null>(null);
+  const lastRemoved = removed?.spotifyTrack === spotifyTrack ? removed : null;
+
+  const remove = async (bookmark: Bookmark) => {
+    const wasActive = bookmark.id === activeId;
+    await deleteMutation({
       variables: { id: bookmark.id },
       refetchQueries,
       awaitRefetchQueries: true,
     });
+    setRemoved({ bookmark, wasActive, spotifyTrack });
+  };
 
-  return { bookmarks, activeId, setActiveId, add, update, remove };
+  /** Adds the last deleted bookmark again, active again if it was. */
+  const undoRemove = async () => {
+    if (!lastRemoved) {
+      return;
+    }
+    setRemoved(null);
+    const restored = await add(lastRemoved.bookmark.positionMs, lastRemoved.bookmark.label);
+    if (lastRemoved.wasActive) {
+      setActiveId(restored.id);
+    }
+  };
+
+  // Stable, so that a timer calling it isn't restarted on every render.
+  const forgetRemoved = useCallback(() => setRemoved(null), []);
+
+  return {
+    bookmarks,
+    activeId,
+    setActiveId,
+    add,
+    update,
+    remove,
+    lastRemoved: lastRemoved?.bookmark ?? null,
+    undoRemove,
+    forgetRemoved,
+  };
 }

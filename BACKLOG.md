@@ -12,7 +12,7 @@ Bookmarks are implemented (see the README). Possible next steps:
 - A–B loop between two bookmarks, with a repeat count.
 - Foot pedal support (page-turner pedals often send arrow keys or PageUp/PageDown, which
   collide with the seek shortcuts).
-- Tune the manager's shift step (now 0.25 s) after some practice with it.
+- Tune the editor's shift step (now 0.25 s) after some practice with it.
 
 ## Section timestamps from LRCLIB
 

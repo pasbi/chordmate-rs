@@ -5,7 +5,10 @@ import type { Bookmarks } from "../hooks/useBookmarks";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { isTypingTarget } from "../lib/isTypingTarget";
 import { formatTime, type Milliseconds, type Seconds } from "../lib/time";
-import { type BookmarkOverlay, BookmarkControls, BookmarkMarkers } from "./BookmarkControls";
+import type Bookmark from "../types/Bookmark";
+import { BookmarkControls } from "./BookmarkControls";
+import { BookmarkMarkers } from "./BookmarkMarkers";
+import type { BookmarkOverlay } from "./bookmarkUi";
 import { ControlButton } from "./ControlButton";
 
 function trackIdToUri(trackId: string) {
@@ -340,7 +343,36 @@ export default function SpotifyPlayer({
     [playback, trackUri, replacementTrackUri, refresh]
   );
 
-  // The bookmark menu and manager take the keyboard while they are open.
+  /** Moves to a position in this song's track, playing or paused as before. */
+  const seekInTrack = useCallback(
+    (positionMs: number) => {
+      if (!playback) {
+        return;
+      }
+      seekQueue.current = seekQueue.current
+        .then(async () => {
+          const current = await playback.currentState();
+          // Another track loaded on the device must not be moved. This song's track may play
+          // under another ID, though: relinked, or replaced in the user's country.
+          if (current === null || !playsTrack(current, trackUri, replacementTrackUri)) {
+            return;
+          }
+          const target = Math.min(Math.max(positionMs, 0), current.duration);
+          await playback.seek(target);
+          setSample({ state: { ...current, position: target }, takenAt: performance.now() });
+        })
+        .catch(console.error);
+    },
+    [playback, trackUri, replacementTrackUri]
+  );
+
+  /** Makes a bookmark, or the last play start for null, ↺'s target, and moves there. */
+  const selectBookmark = (bookmark: Bookmark | null) => {
+    bookmarks.setActiveId(bookmark?.id ?? null);
+    seekInTrack(bookmark ? bookmark.positionMs : lastPlayStartMs);
+  };
+
+  // The bookmark menu and editor take the keyboard while they are open.
   const [bookmarkOverlay, setBookmarkOverlay] = useState<BookmarkOverlay>(null);
   const shortcutsActive = enableShortcuts && bookmarkOverlay === null;
 
@@ -386,6 +418,10 @@ export default function SpotifyPlayer({
               bookmarks={bookmarks}
               durationMs={duration}
               lastPlayStartMs={lastPlayStartMs}
+              overlay={bookmarkOverlay}
+              onOverlayChange={setBookmarkOverlay}
+              onSelect={selectBookmark}
+              onListen={jumpAndPlay}
             />
             <input
               className="w-full h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-600"
@@ -414,11 +450,11 @@ export default function SpotifyPlayer({
         <BookmarkControls
           bookmarks={bookmarks}
           positionMs={position}
-          durationMs={duration}
           lastPlayStartMs={lastPlayStartMs}
           enableShortcuts={shortcutsActive}
           overlay={bookmarkOverlay}
           onOverlayChange={setBookmarkOverlay}
+          onSelect={selectBookmark}
           onJump={jumpAndPlay}
         />
       </div>
