@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>ChordMate</title>
+    <!-- Paints the right background before the scripts and styles load, avoiding a white flash. -->
+    <meta name="color-scheme" content="light dark" />
+    <style>
+      @media (prefers-color-scheme: dark) {
+        html {
+          background-color: oklch(21% 0.034 264.665); /* Tailwind's gray-900, as in App.tsx */
+        }
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
