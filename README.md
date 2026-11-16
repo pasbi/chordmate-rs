@@ -142,7 +142,8 @@ without the Spotify login. The restore command is in the script's header.
 
 Builds and starts the database, backend and an nginx-served frontend, in the
 foreground and without letting the PC sleep. New migrations are applied before
-the backend starts. Ctrl+C stops it:
+the backend starts. Ctrl+C stops and removes the containers; the database volume
+stays:
 
 ```bash
 scripts/prod.sh
