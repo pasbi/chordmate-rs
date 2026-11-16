@@ -16,11 +16,16 @@ async fn main() {
             eprintln!("connection error: {}", e);
         }
     });
-    println!("Running migrations...");
-    for m in migrations::runner().get_migrations() {
-        println!("{}: {}", m.version(), m.name());
-        println!("SQL: {}", m.sql().unwrap_or(""));
+    let report = migrations::runner().run_async(&mut client).await.unwrap();
+    let applied = report.applied_migrations();
+    if applied.is_empty() {
+        println!("The database is up to date.");
     }
-    migrations::runner().run_async(&mut client).await.unwrap();
-    println!("All migrations applied successfully!");
+    for migration in applied {
+        println!(
+            "Applied migration {}: {}",
+            migration.version(),
+            migration.name()
+        );
+    }
 }

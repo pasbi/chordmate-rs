@@ -141,16 +141,14 @@ without the Spotify login. The restore command is in the script's header.
 ## Production
 
 Builds and starts the database, backend and an nginx-served frontend, in the
-foreground and without letting the PC sleep; Ctrl+C stops it:
+foreground and without letting the PC sleep. New migrations are applied before
+the backend starts. Ctrl+C stops it:
 
 ```bash
 scripts/prod.sh
 ```
 
 The app is then available at http://localhost:8080 (backend on port 3000).
-Note: migrations are not applied automatically in this setup, and the production
-database is not exposed on the host, so the schema has to be created by running
-the `migrate` binary from inside the compose network.
 
 ## Keyboard shortcuts
 

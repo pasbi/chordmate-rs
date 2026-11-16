@@ -24,8 +24,8 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy compiled binary
-COPY --from=builder /app/target/release/chordmate .
+# Copy the compiled binaries: the server, and the migrations that run before it (docker-compose.yml)
+COPY --from=builder /app/target/release/chordmate /app/target/release/migrate ./
 
 # The port passed with --port (see docker-compose.yml)
 EXPOSE 3000

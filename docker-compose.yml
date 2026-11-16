@@ -19,27 +19,43 @@ x-database-base: &database-base
         aliases:
           - database
 
+# How the backend and its migrations reach the database (read by backend/src/arguments.rs).
+x-database-connection: &database-connection
+  DB_HOST: database
+  DB_PORT: "5432"
+  DB_NAME: postgres
+  DB_USER: postgres
+  DB_PASSWORD: "${POSTGRES_PASSWORD}"
+
 services:
+  # Applies new migrations from backend/migrations, then exits; the backend starts after it.
+  migrate:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    entrypoint: ["./migrate"]
+    environment: *database-connection
+    depends_on:
+      database-prod:
+        condition: service_healthy
+    profiles:
+      - "prod"
+    networks:
+      internal:
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     env_file:
       - backend/.env
+    environment: *database-connection
     depends_on:
-      database-prod:
-        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     ports:
       - "3000:3000"
-    command: [
-      "--db-host", "database",
-      "--db-port", "5432",
-      "--db-name", "postgres",
-      "--db-user", "postgres",
-      "--db-password", "${POSTGRES_PASSWORD}",
-      "--port", "3000",
-      "--log-level", "info",
-    ]
+    command: ["--port", "3000", "--log-level", "info"]
     profiles:
       - "prod"
     networks:
