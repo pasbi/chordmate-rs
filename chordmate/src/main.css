@@ -7,6 +7,13 @@ body,
   margin: 0;
 }
 
+/* The page never zooms, neither by pinching nor by a double tap: quickly repeated taps on a
+   control (e.g. shifting a bookmark) would zoom otherwise. Only scrolling is left; the sheet has
+   its own font size. Touch actions apply to all descendants. */
+html {
+  touch-action: pan-x pan-y;
+}
+
 /* The ChordPro source is edited like code: one source line per line. */
 .chord-sheet .ProseMirror {
   white-space: pre;
