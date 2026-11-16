@@ -28,7 +28,7 @@ export default function About() {
         <p>
           Write section names in brackets and put each chord line above its lyrics. ChordMate
           highlights both. Lines never wrap, so chords stay above their syllables; use{" "}
-          <strong>Aa</strong> to adjust the font size.
+          <strong>Aa</strong> to adjust the font size or to switch to fullscreen.
         </p>
         <pre className="p-3 rounded bg-gray-100 dark:bg-gray-800 font-mono text-sm overflow-auto">
           {SHEET_EXAMPLE}

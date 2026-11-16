@@ -13,6 +13,7 @@ import type { SpotifyTrack } from "../types/SpotifyTrack.ts";
 import { Modal } from "./Modal.tsx";
 import { Metronome, type MetronomeHandle } from "./Metronome.tsx";
 import { useKeepScreenOn } from "../hooks/useKeepScreenOn";
+import { useFullscreen } from "../hooks/useFullscreen";
 import { Popover } from "./Popover.tsx";
 import { NavBarPortal } from "./NavBarPortal.tsx";
 import { usePlayerVolume } from "../hooks/usePlayerVolume";
@@ -65,6 +66,7 @@ export default function SongDetail() {
   const [searchOpen, setSearchOpen] = useState(false);
   const { volume, setVolume } = usePlayerVolume();
   const { fontSize, setFontSize } = useSheetFontSize();
+  const fullscreen = useFullscreen();
   const { accessToken, status: accessTokenStatus } = useAccessToken();
   const playbackDevice = usePlaybackDevice(accessToken);
   const trackAvailability = useTrackAvailability(
@@ -193,12 +195,12 @@ export default function SongDetail() {
 
   const fontSizePopover = (
     <Popover
-      label="Font size"
+      label="Display"
       renderTrigger={(toggle, open) => (
         <Button
           variant="secondary"
           size="icon"
-          title="Font size"
+          title="Font size and fullscreen"
           aria-expanded={open}
           onClick={toggle}
         >
@@ -206,24 +208,31 @@ export default function SongDetail() {
         </Button>
       )}
     >
-      <div className="flex items-center gap-2">
-        <Button
-          variant="secondary"
-          title="Smaller"
-          disabled={fontSize <= MIN_SHEET_FONT_SIZE}
-          onClick={() => setFontSize(fontSize - 1)}
-        >
-          −
-        </Button>
-        <span className="min-w-[4.5ch] shrink-0 text-center tabular-nums">{fontSize}px</span>
-        <Button
-          variant="secondary"
-          title="Larger"
-          disabled={fontSize >= MAX_SHEET_FONT_SIZE}
-          onClick={() => setFontSize(fontSize + 1)}
-        >
-          +
-        </Button>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            title="Smaller"
+            disabled={fontSize <= MIN_SHEET_FONT_SIZE}
+            onClick={() => setFontSize(fontSize - 1)}
+          >
+            −
+          </Button>
+          <span className="min-w-[4.5ch] shrink-0 text-center tabular-nums">{fontSize}px</span>
+          <Button
+            variant="secondary"
+            title="Larger"
+            disabled={fontSize >= MAX_SHEET_FONT_SIZE}
+            onClick={() => setFontSize(fontSize + 1)}
+          >
+            +
+          </Button>
+        </div>
+        {fullscreen.supported && (
+          <Button variant="secondary" aria-pressed={fullscreen.active} onClick={fullscreen.toggle}>
+            {fullscreen.active ? "Exit fullscreen" : "Fullscreen"}
+          </Button>
+        )}
       </div>
     </Popover>
   );
