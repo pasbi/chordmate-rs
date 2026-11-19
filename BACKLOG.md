@@ -43,7 +43,7 @@ Not designed yet; each needs more thought before it is started.
 - **Auto-scroll synced to playback.** Simple version: scroll position = playback position /
   duration. Later: timestamps per section (see the LRCLIB idea above), so the sheet follows the
   song's structure.
-- **Transpose follow-ups.** Transposing is implemented (in the "Aa" popover, saved per song);
+- **Transpose follow-ups.** Transposing is implemented (☰ menu, saved per song);
   transposed notes are always written with sharps. Possible next steps: spell them as the new
   key does (flats in F, Bb, Eb, … and D, G, C minor, …), with the key taken from a
   `{key: …}` directive or the first chord; and show the key ("G → A") instead of only the

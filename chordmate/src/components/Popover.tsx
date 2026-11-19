@@ -4,7 +4,8 @@ type PopoverProps = {
   label: string;
   /** Renders the button that opens and closes the popover. */
   renderTrigger: (toggle: () => void, open: boolean) => ReactNode;
-  children: ReactNode;
+  /** Renders the panel's content; `close` closes it, e.g. after an action that leaves it. */
+  children: (close: () => void) => ReactNode;
 };
 
 /**
@@ -48,7 +49,7 @@ export function Popover({ label, renderTrigger, children }: PopoverProps) {
         hidden={!open}
         className="absolute right-2 top-full mt-1 z-20 w-max p-2 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
       >
-        {children}
+        {children(() => setOpen(false))}
       </div>
     </div>
   );

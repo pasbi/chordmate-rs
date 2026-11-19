@@ -30,6 +30,161 @@ import {
 /** The most semitones chords can be shifted by, either way (the database allows the same). */
 const MAX_TRANSPOSE = 11;
 
+function formatTranspose(transpose: number) {
+  return transpose === 0 ? "±0" : transpose > 0 ? `+${transpose}` : `−${-transpose}`;
+}
+
+/** A group of the song menu's rows, set off from the next by a line. */
+function MenuSection({ children }: { children: ReactNode }) {
+  return <div className="flex flex-col gap-2 py-3 first:pt-1 last:pb-1">{children}</div>;
+}
+
+/**
+ * A row of the song menu: an icon naming it (spelled out in its title), its controls, and an
+ * optional button at its end. The icons share a narrow column, so that the controls line up.
+ */
+function MenuRow({
+  icon,
+  title,
+  trailing,
+  children,
+}: {
+  /** null for a row continuing the one above. */
+  icon: ReactNode;
+  title: string;
+  trailing: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="grid grid-cols-[2rem_1fr_auto] items-center gap-2" title={title}>
+      <span
+        className="self-start min-h-10 flex items-center justify-center text-gray-600 dark:text-gray-300 select-none"
+        aria-hidden="true"
+      >
+        {icon}
+      </span>
+      <div className="flex items-center gap-2 min-w-0" role="group" aria-label={title}>
+        {children}
+      </div>
+      <div className="self-start">{trailing}</div>
+    </div>
+  );
+}
+
+function SpeakerIcon() {
+  return (
+    <svg viewBox="0 0 16 16" className="w-4 h-4" fill="currentColor" aria-hidden="true">
+      <path d="M2 6h3l4-3.5v11L5 10H2z" />
+      <path
+        d="M11 5.5a3.5 3.5 0 0 1 0 5M12.8 3.5a6 6 0 0 1 0 9"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+/** A square button showing only an icon; its title says what it does. */
+function IconButton({
+  title,
+  onClick,
+  children,
+}: {
+  title: string;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <Button variant="secondary" size="icon" title={title} aria-label={title} onClick={onClick}>
+      {children}
+    </Button>
+  );
+}
+
+function RefreshIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2v3.5H10" />
+    </svg>
+  );
+}
+
+/** Corners pointing out, or in to leave fullscreen. */
+function FullscreenIcon({ exit }: { exit: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path
+        d={
+          exit ? "M6 2v4H2M10 2v4h4M6 14v-4H2M10 14v-4h4" : "M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4"
+        }
+      />
+    </svg>
+  );
+}
+
+/** − value +, for values changed in steps. Quick taps must neither zoom nor select text. */
+function StepControl({
+  value,
+  valueTitle,
+  decreaseTitle,
+  increaseTitle,
+  canDecrease,
+  canIncrease,
+  onStep,
+}: {
+  value: string;
+  valueTitle: string;
+  decreaseTitle: string;
+  increaseTitle: string;
+  canDecrease: boolean;
+  canIncrease: boolean;
+  onStep: (step: -1 | 1) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 select-none">
+      <Button
+        variant="secondary"
+        title={decreaseTitle}
+        disabled={!canDecrease}
+        onClick={() => onStep(-1)}
+      >
+        −
+      </Button>
+      <span className="min-w-[4.5ch] shrink-0 text-center tabular-nums" title={valueTitle}>
+        {value}
+      </span>
+      <Button
+        variant="secondary"
+        title={increaseTitle}
+        disabled={!canIncrease}
+        onClick={() => onStep(1)}
+      >
+        +
+      </Button>
+    </div>
+  );
+}
+
 /** Shifts the sheet's chords by semitones, e.g. to match the recording. Saved with the song. */
 function TransposeControl({
   transpose,
@@ -38,37 +193,21 @@ function TransposeControl({
   transpose: number;
   onChange: (transpose: number) => Promise<void>;
 }) {
-  const change = (newTranspose: number) =>
-    onChange(newTranspose).catch((err: unknown) => {
+  const step = (semitones: -1 | 1) =>
+    onChange(transpose + semitones).catch((err: unknown) => {
       console.error(err);
       window.alert("Saving the transposition failed.");
     });
-  const shown = transpose === 0 ? "±0" : transpose > 0 ? `+${transpose}` : `−${-transpose}`;
   return (
-    <div className="flex items-center gap-2">
-      <Button
-        variant="secondary"
-        title="Transpose down a semitone"
-        disabled={transpose <= -MAX_TRANSPOSE}
-        onClick={() => void change(transpose - 1)}
-      >
-        −
-      </Button>
-      <span
-        className="min-w-[4.5ch] shrink-0 text-center tabular-nums"
-        title="Transposed by semitones"
-      >
-        ♯♭ {shown}
-      </span>
-      <Button
-        variant="secondary"
-        title="Transpose up a semitone"
-        disabled={transpose >= MAX_TRANSPOSE}
-        onClick={() => void change(transpose + 1)}
-      >
-        +
-      </Button>
-    </div>
+    <StepControl
+      value={formatTranspose(transpose)}
+      valueTitle="Semitones"
+      decreaseTitle="Transpose down a semitone"
+      increaseTitle="Transpose up a semitone"
+      canDecrease={transpose > -MAX_TRANSPOSE}
+      canIncrease={transpose < MAX_TRANSPOSE}
+      onStep={(semitones) => void step(semitones)}
+    />
   );
 }
 
@@ -197,14 +336,17 @@ export default function SongDetail() {
 
   const albumArtUrl = song.albumArtUrl;
 
-  const volumePopover = (
+  // Everything but playing and the sheet itself lives in one menu, so that the title bar keeps
+  // room for the title. The metronome stays mounted while the menu is closed: it keeps running,
+  // and the BPM is read from and written to it.
+  const menu = (
     <Popover
-      label="Playback device and volume"
+      label="Song menu"
       renderTrigger={(toggle, open) => (
         <Button
           variant="secondary"
-          size="icon"
-          title="Playback device and volume"
+          size={song.transpose === 0 ? "icon" : "regular"}
+          title="Menu"
           aria-expanded={open}
           onClick={() => {
             if (!open) {
@@ -213,94 +355,106 @@ export default function SongDetail() {
             toggle();
           }}
         >
-          🔊
+          ☰{/* A transposition stays in sight, so that shifted chords aren't a surprise. */}
+          {song.transpose !== 0 && (
+            <span className="ml-1 text-sm tabular-nums" title="Transposed by semitones">
+              {formatTranspose(song.transpose)}
+            </span>
+          )}
         </Button>
       )}
     >
-      <PlaybackDevicePicker
-        devices={playbackDevice.devices}
-        targetName={playbackDevice.targetName}
-        onSelect={playbackDevice.setTargetName}
-        onRefresh={() => void playbackDevice.refreshDevices()}
-      />
-      <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-        <input
-          type="range"
-          min="0"
-          max="100"
-          value={volume}
-          aria-label="Volume"
-          onChange={(e) => setVolume(Number(e.target.value))}
-          className="w-40"
-        />
-        <span className="min-w-[4.5ch] shrink-0 text-right text-sm tabular-nums">{volume}%</span>
-      </div>
-    </Popover>
-  );
-
-  const fontSizePopover = (
-    <Popover
-      label="Display"
-      renderTrigger={(toggle, open) => (
-        <Button
-          variant="secondary"
-          size="icon"
-          title="Font size, transpose and fullscreen"
-          aria-expanded={open}
-          onClick={toggle}
-        >
-          Aa
-        </Button>
-      )}
-    >
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            title="Smaller"
-            disabled={fontSize <= MIN_SHEET_FONT_SIZE}
-            onClick={() => setFontSize(fontSize - 1)}
-          >
-            −
-          </Button>
-          <span className="min-w-[4.5ch] shrink-0 text-center tabular-nums">{fontSize}px</span>
-          <Button
-            variant="secondary"
-            title="Larger"
-            disabled={fontSize >= MAX_SHEET_FONT_SIZE}
-            onClick={() => setFontSize(fontSize + 1)}
-          >
-            +
-          </Button>
+      {(close) => (
+        <div className="w-80 max-w-[calc(100vw-2rem)] flex flex-col divide-y divide-gray-200 dark:divide-gray-700">
+          {/* Actions first, apart from the settings below. */}
+          <MenuSection>
+            <div className="flex gap-2">
+              {fullscreen.supported && (
+                <Button variant="secondary" className="flex-1 gap-2" onClick={fullscreen.toggle}>
+                  <FullscreenIcon exit={fullscreen.active} />
+                  {fullscreen.active ? "Exit fullscreen" : "Fullscreen"}
+                </Button>
+              )}
+              {!editMode && (
+                <Button
+                  variant="secondary"
+                  className="flex-1 gap-2"
+                  onClick={() => {
+                    close();
+                    setEditMode(true);
+                  }}
+                >
+                  <PencilIcon className="w-4 h-4" />
+                  Edit
+                </Button>
+              )}
+            </div>
+          </MenuSection>
+          <MenuSection>
+            <MenuRow
+              icon={<SpeakerIcon />}
+              title="Play on"
+              trailing={
+                <IconButton
+                  title="Refresh the device list"
+                  onClick={() => void playbackDevice.refreshDevices()}
+                >
+                  <RefreshIcon />
+                </IconButton>
+              }
+            >
+              <PlaybackDevicePicker
+                devices={playbackDevice.devices}
+                targetName={playbackDevice.targetName}
+                onSelect={playbackDevice.setTargetName}
+              />
+            </MenuRow>
+            <MenuRow icon={null} title="Volume" trailing={null}>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                value={volume}
+                aria-label="Volume"
+                onChange={(e) => setVolume(Number(e.target.value))}
+                className="flex-1 min-w-0"
+              />
+              <span className="min-w-[4.5ch] shrink-0 text-right text-sm tabular-nums select-none">
+                {volume}%
+              </span>
+            </MenuRow>
+          </MenuSection>
+          <MenuSection>
+            <MenuRow
+              icon={<span className="font-semibold">Aa</span>}
+              title="Font size"
+              trailing={null}
+            >
+              <StepControl
+                value={`${fontSize}px`}
+                valueTitle="Font size"
+                decreaseTitle="Smaller"
+                increaseTitle="Larger"
+                canDecrease={fontSize > MIN_SHEET_FONT_SIZE}
+                canIncrease={fontSize < MAX_SHEET_FONT_SIZE}
+                onStep={(step) => setFontSize(fontSize + step)}
+              />
+            </MenuRow>
+            <MenuRow
+              icon={<span className="font-semibold">♯♭</span>}
+              title="Transpose"
+              trailing={null}
+            >
+              <TransposeControl transpose={song.transpose} onChange={saveTranspose} />
+            </MenuRow>
+          </MenuSection>
+          <MenuSection>
+            <MenuRow icon={<span className="text-xl">♩</span>} title="Metronome" trailing={null}>
+              <Metronome ref={metronomeRef} />
+            </MenuRow>
+          </MenuSection>
         </div>
-        {song && <TransposeControl transpose={song.transpose} onChange={saveTranspose} />}
-        {fullscreen.supported && (
-          <Button variant="secondary" aria-pressed={fullscreen.active} onClick={fullscreen.toggle}>
-            {fullscreen.active ? "Exit fullscreen" : "Fullscreen"}
-          </Button>
-        )}
-      </div>
-    </Popover>
-  );
-
-  // The metronome stays mounted while the popover is closed: it keeps running, and the BPM
-  // is read from and written to it.
-  const metronomePopover = (
-    <Popover
-      label="Metronome"
-      renderTrigger={(toggle, open) => (
-        <Button
-          variant="secondary"
-          size="icon"
-          title="Metronome"
-          aria-expanded={open}
-          onClick={toggle}
-        >
-          ♩
-        </Button>
       )}
-    >
-      <Metronome ref={metronomeRef} />
     </Popover>
   );
 
@@ -341,18 +495,12 @@ export default function SongDetail() {
       ) : (
         <div className="flex-1 min-w-0">{songTitle(null)}</div>
       )}
-      {volumePopover}
-      {fontSizePopover}
-      {metronomePopover}
-      {editMode ? (
+      {editMode && (
         <Button variant="success" onClick={finishEditing}>
           {hasUnsavedChanges ? "Save" : "Done"}
         </Button>
-      ) : (
-        <Button variant="primary" onClick={() => setEditMode(true)}>
-          Edit
-        </Button>
       )}
+      {menu}
     </NavBarPortal>
   );
 

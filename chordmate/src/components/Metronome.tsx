@@ -32,19 +32,19 @@ export const Metronome = forwardRef<MetronomeHandle>((_, ref) => {
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Button variant="primary" className="min-w-20" onClick={running ? stop : start}>
+      <Button variant="primary" className="min-w-16" onClick={running ? stop : start}>
         {running ? "Stop" : "Start"}
       </Button>
-      <label className="flex items-center gap-2">
-        BPM
+      <label className="flex items-center gap-1.5">
         <input
           type="number"
           value={bpm}
           min={30}
           max={300}
           onChange={(e) => setBpm(Number(e.target.value))}
-          className={`w-20 ${INPUT_CLASSES}`}
+          className={`w-16 ${INPUT_CLASSES}`}
         />
+        <span className="text-sm select-none">BPM</span>
       </label>
       <Button variant={blink ? "success" : "secondary"} onClick={tap}>
         Tap

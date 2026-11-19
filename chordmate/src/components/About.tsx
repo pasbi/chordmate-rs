@@ -30,8 +30,8 @@ export default function About() {
         <h2 className="text-lg font-semibold">Chord sheets</h2>
         <p>
           Write section names in brackets and put each chord line above its lyrics. ChordMate
-          highlights both. Lines never wrap, so chords stay above their syllables; use{" "}
-          <strong>Aa</strong> to adjust the font size or to switch to fullscreen.
+          highlights both. Lines never wrap, so chords stay above their syllables; use the song's{" "}
+          <strong>☰</strong> menu to adjust the font size, transpose or switch to fullscreen.
         </p>
         <pre className="p-3 rounded bg-gray-100 dark:bg-gray-800 font-mono text-sm overflow-auto">
           {SHEET_EXAMPLE}

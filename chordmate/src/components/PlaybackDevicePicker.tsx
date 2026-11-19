@@ -13,16 +13,16 @@ function DeviceOption({
   onSelect: (name: string | null) => void;
 }) {
   return (
-    <label className="flex items-center gap-2 px-1 py-1 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700">
+    <label className="flex items-center gap-2 px-1 py-1 rounded cursor-pointer select-none hover:bg-gray-100 dark:hover:bg-gray-700">
       <input
         type="radio"
         name="playback-device"
         checked={selected}
         onChange={() => onSelect(option.name)}
       />
-      <span className="flex flex-col leading-tight">
-        <span>{option.label}</span>
-        <span className="text-xs text-gray-600 dark:text-gray-400">{option.detail}</span>
+      <span className="flex items-baseline gap-2 min-w-0">
+        <span className="truncate">{option.label}</span>
+        <span className="shrink-0 text-xs text-gray-600 dark:text-gray-400">{option.detail}</span>
       </span>
     </label>
   );
@@ -37,19 +37,17 @@ export function PlaybackDevicePicker({
   devices,
   targetName,
   onSelect,
-  onRefresh,
 }: {
   /** Null while loading. */
   devices: SpotifyDevice[] | null;
   targetName: string | null;
   onSelect: (name: string | null) => void;
-  onRefresh: () => void;
 }) {
   const otherDevices = (devices ?? []).filter(
     (device) => !device.name.startsWith(CHORDMATE_PLAYER_NAME_PREFIX)
   );
   const options: Option[] = [
-    { name: null, label: "This device", detail: "Plays in this browser" },
+    { name: null, label: "This device", detail: "this browser" },
     ...otherDevices.map((device) => ({
       name: device.name,
       label: device.name,
@@ -61,18 +59,10 @@ export function PlaybackDevicePicker({
     options.push({ name: targetName, label: targetName, detail: "Not available" });
   }
 
+  // The list's label and refresh button are the song menu's (see SongDetail).
   return (
-    <fieldset className="flex flex-col gap-1 w-64">
-      <legend className="flex w-full items-center justify-between mb-1 text-sm font-semibold">
-        Play on
-        <button
-          type="button"
-          onClick={onRefresh}
-          className="text-xs font-normal text-blue-600 dark:text-blue-400 hover:underline"
-        >
-          Refresh
-        </button>
-      </legend>
+    <fieldset className="flex flex-col gap-1 min-w-0 w-full">
+      <legend className="sr-only">Play on</legend>
       {options.map((option) => (
         <DeviceOption
           key={option.name ?? ""}

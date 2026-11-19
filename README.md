@@ -12,7 +12,7 @@ browser, and a BPM with a metronome.
   as pasted from Ultimate Guitar, are converted on paste (undo once to keep the
   pasted text). Songs saved in the old format are converted with
   `npm run convert-songs` (in `chordmate/`; dry run unless `--apply` is given).
-- Transposing a song's chords by semitones (in the "Aa" popover, saved with the
+- Transposing a song's chords by semitones (in the song's ☰ menu, saved with the
   song), e.g. to match the recording. The sheet's source stays as written;
   transposed notes are written with sharps.
 - Spotify search to link a song to a track; in-browser playback through the
@@ -90,7 +90,7 @@ the database, so the login survives backend restarts.
 
 ### Playing on another device
 
-Under 🔊 on a song page, *Play on* lists your Spotify devices. Choose e.g. the
+In the ☰ menu on a song page, *Play on* lists your Spotify devices. Choose e.g. the
 Spotify desktop app on the PC to use a tablet without audio output as display
 and remote control; the choice is remembered per device. Switching devices
 moves the current playback along. The desktop app has to be running and logged
