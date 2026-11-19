@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { transposeChord } from "./transpose.ts";
+import { transposeChord, wrapTranspose } from "./transpose.ts";
 
 describe("transposeChord", () => {
   it("keeps chords as written without transposition", () => {
@@ -37,5 +37,19 @@ describe("transposeChord", () => {
   it("leaves text that isn't a chord alone", () => {
     expect(transposeChord("N.C.", 2)).toBe("N.C.");
     expect(transposeChord("x2", 2)).toBe("x2");
+  });
+});
+
+describe("wrapTranspose", () => {
+  it("keeps transpositions from −5 to +6", () => {
+    expect(wrapTranspose(-5)).toBe(-5);
+    expect(wrapTranspose(0)).toBe(0);
+    expect(wrapTranspose(6)).toBe(6);
+  });
+
+  it("wraps around the octave", () => {
+    expect(wrapTranspose(7)).toBe(-5);
+    expect(wrapTranspose(-6)).toBe(6);
+    expect(wrapTranspose(12)).toBe(0);
   });
 });

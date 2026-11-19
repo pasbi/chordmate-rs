@@ -48,11 +48,3 @@ Not designed yet; each needs more thought before it is started.
   key does (flats in F, Bb, Eb, … and D, G, C minor, …), with the key taken from a
   `{key: …}` directive or the first chord; and show the key ("G → A") instead of only the
   semitones.
-- **Import from Ultimate Guitar** with a bookmarklet: on a UG tab page, it reads the song's
-  JSON (sheet with `[ch]`/`[tab]` markup, title, artist) and opens
-  `http://<server>:8080/import#<song>`; ChordMate converts the sheet with the existing paste
-  converter, shows a preview and creates the song, with the Spotify search pre-filled. The
-  part after `#` never leaves the browser, and a top-level navigation from HTTPS to HTTP is
-  allowed where a request isn't. Works on the PC only: Firefox for Android doesn't run
-  `javascript:` bookmarks. Fetching UG pages from the backend instead was ruled out: UG's
-  Cloudflare protection would likely block it, and their terms forbid automated access.

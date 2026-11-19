@@ -12,6 +12,10 @@ browser, and a BPM with a metronome.
   as pasted from Ultimate Guitar, are converted on paste (undo once to keep the
   pasted text). Songs saved in the old format are converted with
   `npm run convert-songs` (in `chordmate/`; dry run unless `--apply` is given).
+- Import from Ultimate Guitar with a bookmarklet (set up on the Import page): on a
+  chords page, it opens ChordMate with the song converted, for a check before
+  it is created. Chords written for a capo are transposed to match the
+  recording, and the Spotify search opens with title and artist.
 - Transposing a song's chords by semitones (in the song's ☰ menu, saved with the
   song), e.g. to match the recording. The sheet's source stays as written;
   transposed notes are written with sharps.

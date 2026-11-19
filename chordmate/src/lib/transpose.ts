@@ -27,3 +27,18 @@ export function transposeChord(chord: string, semitones: number) {
       before + transposeNote(letter, accidental, semitones)
   );
 }
+
+/**
+ * Transpositions repeat every octave (+12 is ±0), so they wrap around within one: from −5 to +6,
+ * the shortest way to each key.
+ */
+const LOWEST_TRANSPOSE = -5;
+const SEMITONES_PER_OCTAVE = 12;
+
+export function wrapTranspose(transpose: number) {
+  const offset = transpose - LOWEST_TRANSPOSE;
+  return (
+    (((offset % SEMITONES_PER_OCTAVE) + SEMITONES_PER_OCTAVE) % SEMITONES_PER_OCTAVE) +
+    LOWEST_TRANSPOSE
+  );
+}

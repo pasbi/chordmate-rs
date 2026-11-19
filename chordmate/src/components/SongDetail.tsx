@@ -14,6 +14,7 @@ import { Modal } from "./Modal.tsx";
 import { Metronome, type MetronomeHandle } from "./Metronome.tsx";
 import { useKeepScreenOn } from "../hooks/useKeepScreenOn";
 import { useFullscreen } from "../hooks/useFullscreen";
+import { wrapTranspose } from "../lib/transpose.ts";
 import { Popover } from "./Popover.tsx";
 import { NavBarPortal } from "./NavBarPortal.tsx";
 import { usePlayerVolume } from "../hooks/usePlayerVolume";
@@ -26,21 +27,6 @@ import {
   MIN_SHEET_FONT_SIZE,
   useSheetFontSize,
 } from "../hooks/useSheetFontSize";
-
-/**
- * Transpositions repeat every octave (+12 is ±0), so they wrap around within one: from −5 to +6,
- * the shortest way to each key.
- */
-const LOWEST_TRANSPOSE = -5;
-const SEMITONES_PER_OCTAVE = 12;
-
-function wrapTranspose(transpose: number) {
-  const offset = transpose - LOWEST_TRANSPOSE;
-  return (
-    (((offset % SEMITONES_PER_OCTAVE) + SEMITONES_PER_OCTAVE) % SEMITONES_PER_OCTAVE) +
-    LOWEST_TRANSPOSE
-  );
-}
 
 function formatTranspose(transpose: number) {
   return transpose === 0 ? "±0" : transpose > 0 ? `+${transpose}` : `−${-transpose}`;

@@ -4,9 +4,12 @@ import { ApolloProvider } from "@apollo/client/react";
 import SongsManager from "./components/SongsManager";
 import { createBrowserRouter, Navigate, Outlet, RouterProvider } from "react-router-dom";
 import About from "./components/About";
+import Help from "./components/Help";
 import SongDetail from "./components/SongDetail";
+import ImportSong from "./components/ImportSong";
 import NavBar from "./components/NavBar";
 import { NavBarSlotContext } from "./components/navBarSlot";
+import { IMPORT_PATH } from "./lib/songImport";
 
 const link = new HttpLink({
   uri: `http://${window.location.hostname}:3000/graphql`, // your Rust backend
@@ -39,8 +42,10 @@ const router = createBrowserRouter([
     children: [
       { path: "/", element: <Navigate to="/songs" replace /> },
       { path: "/about", element: <About /> },
+      { path: "/help", element: <Help /> },
       { path: "/songs", element: <SongsManager /> },
       { path: "/songs/:id", element: <SongDetail /> },
+      { path: IMPORT_PATH, element: <ImportSong /> },
     ],
   },
 ]);
