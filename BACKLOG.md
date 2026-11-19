@@ -11,6 +11,10 @@ Bookmarks are implemented (see the README). Possible next steps:
   bookmarks can be placed precisely, so jumps go exactly there.
 - A–B loop extras, if practice asks for them: a repeat count, or a short pause before each
   repeat to get the hands back in position.
+- A–B loop: how to break out of it, e.g. to play on into the next section without stopping.
+  Today the loop ends by pausing, choosing another bookmark or "Last play start", removing
+  B, or seeking past B or before the bookmark. Open: a quicker way while playing, such as a
+  loop on/off toggle (with a key), or ending the loop after the current repeat.
 - Foot pedal support (page-turner pedals often send arrow keys or PageUp/PageDown, which
   collide with the seek shortcuts).
 - Tune the editor's shift step (now 0.25 s) after some practice with it.
@@ -44,3 +48,11 @@ Not designed yet; each needs more thought before it is started.
   key does (flats in F, Bb, Eb, … and D, G, C minor, …), with the key taken from a
   `{key: …}` directive or the first chord; and show the key ("G → A") instead of only the
   semitones.
+- **Import from Ultimate Guitar** with a bookmarklet: on a UG tab page, it reads the song's
+  JSON (sheet with `[ch]`/`[tab]` markup, title, artist) and opens
+  `http://<server>:8080/import#<song>`; ChordMate converts the sheet with the existing paste
+  converter, shows a preview and creates the song, with the Spotify search pre-filled. The
+  part after `#` never leaves the browser, and a top-level navigation from HTTPS to HTTP is
+  allowed where a request isn't. Works on the PC only: Firefox for Android doesn't run
+  `javascript:` bookmarks. Fetching UG pages from the backend instead was ruled out: UG's
+  Cloudflare protection would likely block it, and their terms forbid automated access.
