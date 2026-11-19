@@ -280,14 +280,22 @@ export default function SpotifyPlayer({
   }, [playback, refresh]);
 
   // Linking another track pauses the old one instead of playing the new one; Play then starts
-  // the new track from the beginning.
+  // the new track from the beginning. Only if something plays: with nothing loaded (e.g. a new
+  // song getting its first track), this browser's player rejects a pause with "no list was
+  // loaded", which would show as an error.
   const previousTrackId = useRef(trackId);
   useEffect(() => {
     if (previousTrackId.current === trackId) {
       return;
     }
     previousTrackId.current = trackId;
-    playback?.pause().catch(console.error);
+    if (!playback) {
+      return;
+    }
+    playback
+      .currentState()
+      .then((current) => (current !== null && !current.paused ? playback.pause() : undefined))
+      .catch(console.error);
   }, [playback, trackId]);
 
   // Where Play was last pressed in this track, the target of ↺ while no bookmark is active.
