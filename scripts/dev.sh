@@ -42,7 +42,9 @@ start_backend() {
 cleanup() {
   stop "$backend_pid"
   stop "$frontend_pid"
-  docker compose --profile dev stop
+  # Removed, not just stopped: a stopped container keeps pointing to the shared network, which
+  # prod.sh removes when it stops, and then can't start again. The database volume stays.
+  docker compose --profile dev down
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
