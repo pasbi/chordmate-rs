@@ -14,18 +14,24 @@ const VARIANT_CLASSES: Record<ControlButtonVariant, string> = {
   secondary: `min-w-10 ${SECONDARY_COLORS}`,
 };
 
+// An invisible margin that belongs to the button: taps on it are the button's.
+const ENLARGED_HIT_AREA_CLASSES = "relative after:absolute after:-inset-2 after:content-['']";
+
 /** A button of the player's control row. */
 export function ControlButton({
   onClick,
   title,
   variant,
   disabled,
+  enlargedHitArea,
   children,
 }: {
   onClick: () => void;
   title: string;
   variant: ControlButtonVariant;
   disabled: boolean;
+  /** Also takes taps slightly beside the button, for one that is hit often without looking. */
+  enlargedHitArea: boolean;
   children: ReactNode;
 }) {
   return (
@@ -34,7 +40,9 @@ export function ControlButton({
       title={title}
       onClick={onClick}
       disabled={disabled}
-      className={`${BASE_CLASSES} rounded ${VARIANT_CLASSES[variant]} disabled:opacity-40`}
+      className={`${BASE_CLASSES} rounded ${VARIANT_CLASSES[variant]} disabled:opacity-40 ${
+        enlargedHitArea ? ENLARGED_HIT_AREA_CLASSES : ""
+      }`}
     >
       {children}
     </button>

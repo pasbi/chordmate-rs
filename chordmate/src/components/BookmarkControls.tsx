@@ -279,6 +279,7 @@ export function BookmarkControls({
   return (
     <div className="relative flex items-center gap-1">
       <ControlButton
+        enlargedHitArea={false}
         variant="secondary"
         title="Add bookmark here (B)"
         disabled={false}
@@ -288,6 +289,7 @@ export function BookmarkControls({
       </ControlButton>
       {active && (
         <ControlButton
+          enlargedHitArea={false}
           variant="secondary"
           title={loopEndTitle}
           disabled={!canSetLoopEnd}

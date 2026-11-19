@@ -536,6 +536,7 @@ export default function SpotifyPlayer({
 
         <div className="order-first">
           <ControlButton
+            enlargedHitArea={true}
             variant="primary"
             title={paused ? "Play (Space)" : "Pause (Space)"}
             disabled={false}
