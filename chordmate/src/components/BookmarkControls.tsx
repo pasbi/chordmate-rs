@@ -41,60 +41,112 @@ function LoopEndIcon() {
   );
 }
 
-/** Lists ↺'s possible targets; choosing one selects it. Explains how to edit bookmarks. */
+/** The time of a bookmark, with its loop end if it has one. */
+function bookmarkSpan(bookmark: Bookmark) {
+  const start = formatPosition(bookmark.positionMs);
+  return bookmark.endMs === null ? start : `${start}–${formatPosition(bookmark.endMs)}`;
+}
+
+/**
+ * One entry of the bookmark menu: choosing it selects it; a bookmark also has ✎ to edit it, the
+ * touch-friendly way to its editor besides a long press on its marker.
+ */
+function BookmarkMenuEntry({
+  name,
+  time,
+  isActive,
+  onSelect,
+  onEdit,
+}: {
+  /** null for an unnamed bookmark. */
+  name: string | null;
+  time: string;
+  isActive: boolean;
+  onSelect: () => void;
+  /** null for the last play start, which can't be edited. */
+  onEdit: (() => void) | null;
+}) {
+  return (
+    <div className="flex items-stretch">
+      <button
+        type="button"
+        role="menuitemradio"
+        aria-checked={isActive}
+        onClick={onSelect}
+        className={`${MENU_ITEM_CLASSES} flex flex-1 items-center gap-3`}
+      >
+        <span className={`w-3 ${JUMP_TARGET_TEXT_CLASSES}`} aria-hidden="true">
+          {isActive ? "●" : ""}
+        </span>
+        <span
+          className={`flex-1 truncate max-w-56 ${
+            name === null ? "italic text-gray-500 dark:text-gray-400" : ""
+          }`}
+        >
+          {name ?? "Unnamed"}
+        </span>
+        <span className="text-sm tabular-nums text-gray-600 dark:text-gray-400">{time}</span>
+      </button>
+      {onEdit ? (
+        <button
+          type="button"
+          role="menuitem"
+          title="Rename, shift or delete"
+          aria-label={`Edit “${name ?? time}”`}
+          onClick={onEdit}
+          className="w-11 flex items-center justify-center text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus-visible:outline-none focus-visible:bg-gray-100 dark:focus-visible:bg-gray-700"
+        >
+          ✎
+        </button>
+      ) : (
+        <span className="w-11" />
+      )}
+    </div>
+  );
+}
+
+/** Lists ↺'s possible targets; choosing one selects it, ✎ edits a bookmark. */
 function BookmarkMenu({
   bookmarks,
   lastPlayStartMs,
   anchor,
   onSelect,
+  onEdit,
   onClose,
 }: {
   bookmarks: Bookmarks;
   lastPlayStartMs: number;
   anchor: DOMRect;
   onSelect: (bookmark: Bookmark | null) => void;
+  onEdit: (bookmark: Bookmark) => void;
   onClose: () => void;
 }) {
   // Opens below the ▾, extending toward the middle of the screen.
   const x = anchor.left < window.innerWidth / 2 ? anchor.left : anchor.right;
-  const entries = [
-    { bookmark: null, name: `▶ ${LAST_PLAY_START_LABEL}`, positionMs: lastPlayStartMs },
-    ...bookmarks.bookmarks.map((bookmark) => ({
-      bookmark,
-      // The time column shows the time; an unnamed bookmark doesn't repeat it as its name.
-      name: bookmark.label,
-      positionMs: bookmark.positionMs,
-    })),
-  ];
+  const select = (bookmark: Bookmark | null) => {
+    onSelect(bookmark);
+    onClose();
+  };
   return (
     <FloatingMenu x={x} y={anchor.bottom + 4} role="menu" label="Bookmarks" onClose={onClose}>
-      {entries.map(({ bookmark, name, positionMs }) => {
-        const isActive = (bookmark?.id ?? null) === bookmarks.activeId;
-        return (
-          <button
-            key={bookmark?.id ?? "lastPlayStart"}
-            type="button"
-            role="menuitemradio"
-            aria-checked={isActive}
-            onClick={() => {
-              onSelect(bookmark);
-              onClose();
-            }}
-            className={`${MENU_ITEM_CLASSES} flex items-center gap-3`}
-          >
-            <span className={`w-3 ${JUMP_TARGET_TEXT_CLASSES}`} aria-hidden="true">
-              {isActive ? "●" : ""}
-            </span>
-            <span className="flex-1 truncate max-w-56">{name}</span>
-            <span className="text-sm tabular-nums text-gray-600 dark:text-gray-400">
-              {formatPosition(positionMs)}
-            </span>
-          </button>
-        );
-      })}
-      <p className="mt-1 px-4 pt-2 pb-1 border-t border-gray-200 dark:border-gray-700 text-xs text-gray-600 dark:text-gray-400">
-        To rename, shift or delete a bookmark, right-click or long-press its marker on the slider.
-      </p>
+      <BookmarkMenuEntry
+        name={`▶ ${LAST_PLAY_START_LABEL}`}
+        time={formatPosition(lastPlayStartMs)}
+        isActive={bookmarks.activeId === null}
+        onSelect={() => select(null)}
+        onEdit={null}
+      />
+      {bookmarks.bookmarks.map((bookmark) => (
+        <BookmarkMenuEntry
+          key={bookmark.id}
+          name={bookmark.label || null}
+          time={bookmarkSpan(bookmark)}
+          isActive={bookmark.id === bookmarks.activeId}
+          onSelect={() => select(bookmark)}
+          // Replaces the menu with the editor.
+          onEdit={() => onEdit(bookmark)}
+        />
+      ))}
     </FloatingMenu>
   );
 }
@@ -142,6 +194,7 @@ export function BookmarkControls({
   onOverlayChange,
   onSelect,
   onJump,
+  onEdit,
 }: {
   bookmarks: Bookmarks;
   positionMs: number;
@@ -153,6 +206,8 @@ export function BookmarkControls({
   onSelect: (bookmark: Bookmark | null) => void;
   /** Moves playback to a position in this song's track and plays. */
   onJump: (positionMs: number) => void;
+  /** Opens a bookmark's editor. */
+  onEdit: (bookmark: Bookmark) => void;
 }) {
   const [adding, setAdding] = useState(false);
   const active = bookmarks.bookmarks.find((bookmark) => bookmark.id === bookmarks.activeId) ?? null;
@@ -260,6 +315,7 @@ export function BookmarkControls({
           lastPlayStartMs={lastPlayStartMs}
           anchor={overlay.anchor}
           onSelect={onSelect}
+          onEdit={onEdit}
           onClose={() => onOverlayChange(null)}
         />
       )}

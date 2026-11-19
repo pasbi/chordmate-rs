@@ -457,6 +457,18 @@ export default function SpotifyPlayer({
   // The bookmark menu and editor take the keyboard while they are open.
   const [bookmarkOverlay, setBookmarkOverlay] = useState<BookmarkOverlay>(null);
 
+  // Opened from the bookmark menu, the editor appears where a long press on the bookmark's marker
+  // opens it: below the slider at the marker (see BookmarkMarkers).
+  const sliderRef = useRef<HTMLDivElement>(null);
+  const editBookmark = (bookmark: Bookmark) => {
+    const slider = sliderRef.current?.getBoundingClientRect();
+    if (!slider || duration <= 0) {
+      return;
+    }
+    const fraction = Math.min(bookmark.positionMs / duration, 1);
+    const x = slider.left + 8 + (slider.width - 16) * fraction;
+    setBookmarkOverlay({ kind: "editor", bookmarkId: bookmark.id, x, y: slider.bottom + 8 });
+  };
   const shortcutsActive = enableShortcuts && bookmarkOverlay === null;
 
   useEffect(() => {
@@ -496,7 +508,7 @@ export default function SpotifyPlayer({
           <span className="text-xs tabular-nums text-gray-700 dark:text-gray-300">
             {formatTime(position as Milliseconds)}
           </span>
-          <div className="relative flex-1 flex items-center">
+          <div ref={sliderRef} className="relative flex-1 flex items-center">
             <BookmarkMarkers
               bookmarks={bookmarks}
               durationMs={duration}
@@ -541,6 +553,7 @@ export default function SpotifyPlayer({
           onOverlayChange={setBookmarkOverlay}
           onSelect={selectBookmark}
           onJump={jumpAndPlay}
+          onEdit={editBookmark}
         />
       </div>
     </div>

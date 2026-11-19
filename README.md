@@ -22,8 +22,8 @@ browser, and a BPM with a metronome.
   `R`) jumps back to the active bookmark and plays. Markers above the slider
   show the bookmarks, the active one in amber with its name. Clicking a marker
   (or choosing it in the ▾ menu) makes it active and moves there;
-  right-clicking or long-pressing it renames, shifts, plays or deletes it. A
-  bookmark without a name shows its current time.
+  right-clicking or long-pressing it (or ✎ in the ▾ menu) renames, shifts,
+  plays or deletes it. A bookmark without a name shows its current time.
   A–B loop: with a bookmark active, ⇥ (or `E`) sets its loop end B at the
   current position (again to move it). Played from within the passage, playback
   returns to the bookmark at B, again and again; the slider's bar shows the
