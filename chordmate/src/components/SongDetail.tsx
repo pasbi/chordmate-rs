@@ -27,8 +27,20 @@ import {
   useSheetFontSize,
 } from "../hooks/useSheetFontSize";
 
-/** The most semitones chords can be shifted by, either way (the database allows the same). */
-const MAX_TRANSPOSE = 11;
+/**
+ * Transpositions repeat every octave (+12 is ±0), so they wrap around within one: from −5 to +6,
+ * the shortest way to each key.
+ */
+const LOWEST_TRANSPOSE = -5;
+const SEMITONES_PER_OCTAVE = 12;
+
+function wrapTranspose(transpose: number) {
+  const offset = transpose - LOWEST_TRANSPOSE;
+  return (
+    (((offset % SEMITONES_PER_OCTAVE) + SEMITONES_PER_OCTAVE) % SEMITONES_PER_OCTAVE) +
+    LOWEST_TRANSPOSE
+  );
+}
 
 function formatTranspose(transpose: number) {
   return transpose === 0 ? "±0" : transpose > 0 ? `+${transpose}` : `−${-transpose}`;
@@ -194,18 +206,18 @@ function TransposeControl({
   onChange: (transpose: number) => Promise<void>;
 }) {
   const step = (semitones: -1 | 1) =>
-    onChange(transpose + semitones).catch((err: unknown) => {
+    onChange(wrapTranspose(transpose + semitones)).catch((err: unknown) => {
       console.error(err);
       window.alert("Saving the transposition failed.");
     });
   return (
     <StepControl
-      value={formatTranspose(transpose)}
+      value={formatTranspose(wrapTranspose(transpose))}
       valueTitle="Semitones"
       decreaseTitle="Transpose down a semitone"
       increaseTitle="Transpose up a semitone"
-      canDecrease={transpose > -MAX_TRANSPOSE}
-      canIncrease={transpose < MAX_TRANSPOSE}
+      canDecrease={true}
+      canIncrease={true}
       onStep={(semitones) => void step(semitones)}
     />
   );
@@ -345,7 +357,7 @@ export default function SongDetail() {
       renderTrigger={(toggle, open) => (
         <Button
           variant="secondary"
-          size={song.transpose === 0 ? "icon" : "regular"}
+          size="icon"
           title="Menu"
           aria-expanded={open}
           onClick={() => {
@@ -355,12 +367,7 @@ export default function SongDetail() {
             toggle();
           }}
         >
-          ☰{/* A transposition stays in sight, so that shifted chords aren't a surprise. */}
-          {song.transpose !== 0 && (
-            <span className="ml-1 text-sm tabular-nums" title="Transposed by semitones">
-              {formatTranspose(song.transpose)}
-            </span>
-          )}
+          ☰
         </Button>
       )}
     >
