@@ -125,10 +125,23 @@ interface EditorProps {
   fontSize: number;
   /** Semitones the rendered sheet's chords are shifted by; the source is edited as written. */
   transpose: number;
+  /**
+   * Whether the source takes the keyboard, with the cursor at its very beginning: noise at the
+   * start of a sheet (a repeated title, a link) can then be removed right away with Delete.
+   * Becoming true again puts the cursor there again.
+   */
+  focusAtStart: boolean;
 }
 
 /** The song sheet: ChordPro source while editing, the rendered sheet otherwise. */
-export default function Editor({ content, onUpdate, editable, fontSize, transpose }: EditorProps) {
+export default function Editor({
+  content,
+  onUpdate,
+  editable,
+  fontSize,
+  transpose,
+  focusAtStart,
+}: EditorProps) {
   // Songs saved in an earlier format are shown, and edited, as ChordPro.
   const [text, setText] = useState(() => normalizeSongContent(content));
   const [isEmpty, setIsEmpty] = useState(text.trim() === "");
@@ -155,6 +168,11 @@ export default function Editor({ content, onUpdate, editable, fontSize, transpos
     // Without an update event: switching modes does not change the text.
     editor.setEditable(editable, false);
   }, [editor, editable]);
+  useEffect(() => {
+    if (focusAtStart) {
+      editor.commands.focus("start");
+    }
+  }, [editor, focusAtStart]);
   const editorScrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {

@@ -17,6 +17,13 @@ Chords stand above
 Am          F
 the lyrics they belong to`;
 
+const EDITING_SHORTCUTS: [string, string][] = [
+  ["Enter / Ctrl + S", "Import page: create the song"],
+  ["Enter", "Spotify search: pick the highlighted track"],
+  ["↑ / ↓", "Spotify search: move the highlight"],
+  ["Ctrl + S", "Edit mode: save and finish editing"],
+];
+
 function ShortcutTable({ shortcuts }: { shortcuts: [string, string][] }) {
   return (
     <table className="text-left">
@@ -52,6 +59,8 @@ export default function Help() {
         <h2 className="text-lg font-semibold">Keyboard shortcuts</h2>
         <p>On a song page, outside edit mode:</p>
         <ShortcutTable shortcuts={SHORTCUTS} />
+        <p>Adding songs and editing:</p>
+        <ShortcutTable shortcuts={EDITING_SHORTCUTS} />
       </section>
 
       <section className="flex flex-col gap-2">

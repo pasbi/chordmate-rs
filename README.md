@@ -176,3 +176,12 @@ Outside of edit mode, on a song page:
 | R                   | Back to the active bookmark             |
 | ↑ / ↓               | Scroll the chord sheet                  |
 | Esc                 | Close a dialog or popover               |
+
+Adding songs and editing:
+
+| Key              | Action                                       |
+|------------------|----------------------------------------------|
+| Enter / Ctrl + S | Import page: create the song                 |
+| Enter            | Spotify search: pick the highlighted track   |
+| ↑ / ↓            | Spotify search: move the highlight           |
+| Ctrl + S         | Edit mode: save and finish editing           |

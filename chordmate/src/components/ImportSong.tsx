@@ -1,6 +1,6 @@
 import { gql } from "@apollo/client";
 import { useMutation, useQuery } from "@apollo/client/react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { GET_SONGS } from "../graphql";
 import { useSheetFontSize } from "../hooks/useSheetFontSize";
@@ -12,6 +12,7 @@ import Button from "./Button.tsx";
 import ChordSheet from "./ChordSheet.tsx";
 import { INPUT_CLASSES } from "./inputClasses.ts";
 import { TextPage } from "./TextPage.tsx";
+import { isSaveShortcut } from "../lib/isTypingTarget.ts";
 
 const ADD_SONG = gql`
   mutation AddSong {
@@ -153,6 +154,23 @@ function ImportForm({ imported }: { imported: ImportedSong }) {
     }
   };
 
+  // Enter or Ctrl+S creates the song, also from the title and artist fields. Enter on a button or
+  // link keeps activating that instead. Subscribed anew on every render, for the current fields.
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      const onControl =
+        event.target instanceof HTMLButtonElement || event.target instanceof HTMLAnchorElement;
+      const plainEnter =
+        event.key === "Enter" && !event.ctrlKey && !event.metaKey && !event.altKey && !onControl;
+      if (plainEnter || isSaveShortcut(event)) {
+        event.preventDefault();
+        void create();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  });
+
   return (
     <div className="flex flex-col gap-3">
       <div className="grid grid-cols-[auto_1fr] items-center gap-2 max-w-xl">
@@ -192,6 +210,7 @@ function ImportForm({ imported }: { imported: ImportedSong }) {
       <div className="flex gap-2">
         <Button
           variant="primary"
+          title="Create song (Enter or Ctrl+S)"
           disabled={!canCreate}
           onClick={() => void create()}
         >

@@ -15,6 +15,7 @@ import { Metronome, type MetronomeHandle } from "./Metronome.tsx";
 import { useKeepScreenOn } from "../hooks/useKeepScreenOn";
 import { useFullscreen } from "../hooks/useFullscreen";
 import { wrapTranspose } from "../lib/transpose.ts";
+import { isSaveShortcut } from "../lib/isTypingTarget.ts";
 import { Popover } from "./Popover.tsx";
 import { NavBarPortal } from "./NavBarPortal.tsx";
 import { usePlayerVolume } from "../hooks/usePlayerVolume";
@@ -209,6 +210,25 @@ function TransposeControl({
       onStep={(semitones) => void step(semitones)}
     />
   );
+}
+
+/** While mounted (in edit mode), Ctrl+S saves and finishes editing, like Done. */
+function SaveShortcut({ onSave }: { onSave: () => Promise<void> }) {
+  const latestOnSave = useRef(onSave);
+  useEffect(() => {
+    latestOnSave.current = onSave;
+  });
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (isSaveShortcut(event)) {
+        event.preventDefault();
+        void latestOnSave.current();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, []);
+  return null;
 }
 
 function PencilIcon({ className }: { className: string }) {
@@ -490,8 +510,9 @@ export default function SongDetail() {
       ) : (
         <div className="flex-1 min-w-0">{songTitle(null)}</div>
       )}
+      {editMode && <SaveShortcut onSave={finishEditing} />}
       {editMode && (
-        <Button variant="success" onClick={finishEditing}>
+        <Button variant="success" title="Save and finish editing (Ctrl+S)" onClick={finishEditing}>
           {hasUnsavedChanges ? "Save" : "Done"}
         </Button>
       )}
@@ -524,6 +545,8 @@ export default function SongDetail() {
           editable={editMode}
           fontSize={fontSize}
           transpose={song.transpose}
+          // The Spotify search has the keyboard while it is open (e.g. right after an import).
+          focusAtStart={editMode && !searchOpen}
         />
       </div>
 

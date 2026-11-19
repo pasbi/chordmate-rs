@@ -1,4 +1,4 @@
-import { useState, useEffect, type ChangeEvent, useRef } from "react";
+import { useState, useEffect, type ChangeEvent, type KeyboardEvent, useRef } from "react";
 import { gql } from "@apollo/client";
 import { useLazyQuery } from "@apollo/client/react";
 import type { SpotifyTrack } from "../types/SpotifyTrack";
@@ -69,6 +69,47 @@ export default function SpotifySearch({
     search({ variables: { query: debouncedQuery } });
   }, [debouncedQuery, search]);
 
+  // The results for what is typed now; older ones are still shown while new ones load.
+  const tracks = data?.searchSpotifyTracks ?? [];
+  const resultsCurrent = !loading && debouncedQuery === query && data !== undefined;
+
+  // Enter picks the highlighted result, the first unless moved with ↑/↓. The highlight is tied to
+  // its results, so that new results start at the first again.
+  const [highlight, setHighlight] = useState({ tracks, index: 0 });
+  const highlighted = highlight.tracks === tracks ? highlight.index : 0;
+  const pick = (track: SpotifyTrack) => {
+    onSelect(track);
+    onClose();
+  };
+  // Enter pressed while the results are still loading picks the first one once they are there.
+  // Typing again cancels it.
+  const [pickWhenLoaded, setPickWhenLoaded] = useState(false);
+  const firstTrack = resultsCurrent ? (tracks[0] ?? null) : null;
+  const latestPick = useRef(pick);
+  useEffect(() => {
+    latestPick.current = pick;
+  });
+  useEffect(() => {
+    if (pickWhenLoaded && firstTrack !== null) {
+      latestPick.current(firstTrack);
+    }
+  }, [pickWhenLoaded, firstTrack]);
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      const index = Math.min(Math.max(highlighted + step, 0), Math.max(tracks.length - 1, 0));
+      setHighlight({ tracks, index });
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      if (resultsCurrent && tracks.length > 0) {
+        pick(tracks[highlighted]);
+      } else if (!resultsCurrent) {
+        setPickWhenLoaded(true);
+      }
+    }
+  };
+
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     inputRef.current?.focus();
@@ -88,8 +129,13 @@ export default function SpotifySearch({
           ref={inputRef}
           type="search"
           value={query}
-          onChange={(e: ChangeEvent<HTMLInputElement>) => setQuery(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => {
+            setQuery(e.target.value);
+            setPickWhenLoaded(false);
+          }}
+          onKeyDown={handleKeyDown}
           placeholder="Search Spotify tracks..."
+          title="Enter picks the highlighted track, ↑/↓ move the highlight"
           className={`w-full ${INPUT_CLASSES}`}
         />
       </div>
@@ -98,15 +144,14 @@ export default function SpotifySearch({
       {error && <p className="px-4 pt-2 text-red-500">Error fetching tracks</p>}
 
       <ul className="flex-1 overflow-auto p-2">
-        {data?.searchSpotifyTracks.map((track: SpotifyTrack) => (
+        {tracks.map((track: SpotifyTrack, index) => (
           <li key={track.id}>
             <button
               type="button"
-              onClick={() => {
-                onSelect(track);
-                onClose();
-              }}
-              className="w-full text-left flex items-center gap-3 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 focus-visible:outline-2 focus-visible:outline-blue-500"
+              onClick={() => pick(track)}
+              className={`w-full text-left flex items-center gap-3 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 focus-visible:outline-2 focus-visible:outline-blue-500 ${
+                index === highlighted ? "bg-gray-100 dark:bg-gray-800" : ""
+              }`}
             >
               <img
                 src={track.albumArt ?? undefined}
