@@ -19,11 +19,13 @@ export function ControlButton({
   onClick,
   title,
   variant,
+  disabled,
   children,
 }: {
   onClick: () => void;
   title: string;
   variant: ControlButtonVariant;
+  disabled: boolean;
   children: ReactNode;
 }) {
   return (
@@ -31,7 +33,8 @@ export function ControlButton({
       type="button"
       title={title}
       onClick={onClick}
-      className={`${BASE_CLASSES} rounded ${VARIANT_CLASSES[variant]}`}
+      disabled={disabled}
+      className={`${BASE_CLASSES} rounded ${VARIANT_CLASSES[variant]} disabled:opacity-40`}
     >
       {children}
     </button>

@@ -74,18 +74,19 @@ impl QLMutation {
         spotify_track: String,
         position_ms: i32,
         label: String,
+        end_ms: Option<i32>,
     ) -> FieldResult<Bookmark> {
         let client = self.database_connection.get().await?;
         let statement = client
             .prepare(
-                "INSERT INTO bookmarks (song_id, spotify_track, position_ms, label) \
-                 VALUES ($1, $2, $3, $4) RETURNING *;",
+                "INSERT INTO bookmarks (song_id, spotify_track, position_ms, label, end_ms) \
+                 VALUES ($1, $2, $3, $4, $5) RETURNING *;",
             )
             .await?;
         let row = client
             .query_one(
                 &statement,
-                &[&song_id, &spotify_track, &position_ms, &label],
+                &[&song_id, &spotify_track, &position_ms, &label, &end_ms],
             )
             .await?;
         Ok(Bookmark::from_row(&row)?)
@@ -96,13 +97,17 @@ impl QLMutation {
         id: i32,
         position_ms: i32,
         label: String,
+        end_ms: Option<i32>,
     ) -> FieldResult<Bookmark> {
         let client = self.database_connection.get().await?;
         let statement = client
-            .prepare("UPDATE bookmarks SET position_ms = $2, label = $3 WHERE id = $1 RETURNING *;")
+            .prepare(
+                "UPDATE bookmarks SET position_ms = $2, label = $3, end_ms = $4 \
+                 WHERE id = $1 RETURNING *;",
+            )
             .await?;
         let row = client
-            .query_one(&statement, &[&id, &position_ms, &label])
+            .query_one(&statement, &[&id, &position_ms, &label, &end_ms])
             .await?;
         Ok(Bookmark::from_row(&row)?)
     }

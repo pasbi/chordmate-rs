@@ -31,3 +31,14 @@ export function formatPrecisePosition(positionMs: number) {
   const tenths = Math.floor((positionMs % 1000) / 100);
   return `${formatPosition(positionMs)}.${tenths}`;
 }
+
+/** The shortest passage a loop end may close, after the bookmark's position. */
+export const MIN_LOOP_MS = 500;
+
+/** Listening to a loop end starts this much before it, so that the end and the jump back are heard. */
+export const LOOP_END_LEAD_MS = 2000;
+
+/** Where to listen to a bookmark's loop end from: a little before it, but not before the bookmark. */
+export function loopEndListenPosition(bookmark: Bookmark & { endMs: number }) {
+  return Math.max(bookmark.endMs - LOOP_END_LEAD_MS, bookmark.positionMs);
+}

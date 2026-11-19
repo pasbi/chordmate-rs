@@ -2,7 +2,7 @@ import type { AccessTokenStatus } from "../hooks/useAccessToken";
 import type { Playback } from "../hooks/usePlayback";
 import { type PlaybackState, playsTrack } from "../lib/spotifyApi";
 import type { Bookmarks } from "../hooks/useBookmarks";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { isTypingTarget } from "../lib/isTypingTarget";
 import { formatTime, type Milliseconds, type Seconds } from "../lib/time";
 import type Bookmark from "../types/Bookmark";
@@ -65,11 +65,31 @@ function PauseIcon() {
 const END_MARGIN_MS = 500;
 /** When the song played this close to its end, another track starting is the album playing on. */
 const END_WINDOW_MS = 5000;
+/** A position reported just before a loop's start still counts as in the loop (seek rounding). */
+const LOOP_START_TOLERANCE_MS = 250;
 const SLIDER_SEEK_DELAY_MS = 300;
 const DISPLAY_TICK_MS = 250;
 
 /** A polled playback state and when it was taken, to move the position on between polls. */
 type Sample = { state: PlaybackState | null; takenAt: number };
+
+/** Marks the passage of a loop on the slider's bar (see .position-slider in main.css). */
+function loopBandStyle(
+  startMs: number | null,
+  endMs: number | null,
+  durationMs: number
+): CSSProperties | undefined {
+  if (startMs === null || endMs === null || durationMs <= 0) {
+    return undefined;
+  }
+  // As the markers: the thumb's center stays half a thumb (8 px) from the slider's ends.
+  const offset = (positionMs: number) =>
+    `calc(8px + (100% - 16px) * ${Math.min(positionMs / durationMs, 1)})`;
+  return {
+    "--loop-start": offset(startMs),
+    "--loop-end": offset(endMs),
+  } as CSSProperties;
+}
 
 export default function SpotifyPlayer({
   trackId,
@@ -415,8 +435,28 @@ export default function SpotifyPlayer({
     }
   }, [state, sample, playback]);
 
+  // The active bookmark's passage up to its loop end B plays again and again: reaching B returns
+  // to the bookmark. Only from within the passage, so that playing the song from elsewhere isn't
+  // caught by it before reaching the bookmark.
+  const activeBookmark =
+    bookmarks.bookmarks.find((bookmark) => bookmark.id === bookmarks.activeId) ?? null;
+  const loopStartMs = activeBookmark?.positionMs ?? null;
+  const loopEndMs = activeBookmark?.endMs ?? null;
+  useEffect(() => {
+    if (state === null || state.paused || loopStartMs === null || loopEndMs === null) {
+      return;
+    }
+    const positionNow = state.position + performance.now() - sample.takenAt;
+    if (state.position < loopStartMs - LOOP_START_TOLERANCE_MS || positionNow >= loopEndMs) {
+      return;
+    }
+    const timeout = setTimeout(() => seekInTrack(loopStartMs), loopEndMs - positionNow);
+    return () => clearTimeout(timeout);
+  }, [state, sample.takenAt, loopStartMs, loopEndMs, seekInTrack]);
+
   // The bookmark menu and editor take the keyboard while they are open.
   const [bookmarkOverlay, setBookmarkOverlay] = useState<BookmarkOverlay>(null);
+
   const shortcutsActive = enableShortcuts && bookmarkOverlay === null;
 
   useEffect(() => {
@@ -467,7 +507,8 @@ export default function SpotifyPlayer({
               onListen={jumpAndPlay}
             />
             <input
-              className="position-slider w-full h-2 rounded-lg appearance-none bg-gray-300 dark:bg-gray-600"
+              className="position-slider w-full h-2 rounded-lg appearance-none"
+              style={loopBandStyle(loopStartMs, loopEndMs, duration)}
               type="range"
               aria-label="Position"
               min={0}
@@ -485,6 +526,7 @@ export default function SpotifyPlayer({
           <ControlButton
             variant="primary"
             title={paused ? "Play (Space)" : "Pause (Space)"}
+            disabled={false}
             onClick={togglePlay}
           >
             {paused ? <PlayIcon /> : <PauseIcon />}

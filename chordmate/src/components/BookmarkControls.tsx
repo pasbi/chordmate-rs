@@ -7,6 +7,7 @@ import {
   bookmarkName,
   formatPosition,
   JUMP_TARGET_TEXT_CLASSES,
+  MIN_LOOP_MS,
 } from "./bookmarkUi";
 import { FloatingMenu, MENU_ITEM_CLASSES } from "./ContextMenu";
 import { ControlButton, SplitControlButton } from "./ControlButton";
@@ -18,6 +19,24 @@ function BookmarkIcon() {
   return (
     <svg viewBox="0 0 16 16" className="w-4 h-4" fill="currentColor" aria-hidden="true">
       <path d="M4 1.5h8v13l-4-3-4 3z" />
+    </svg>
+  );
+}
+
+/** An arrow up to a bar: playback goes up to here, then back to the bookmark. */
+function LoopEndIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M2 8h9M8 4.5 11.5 8 8 11.5M14 3v10" />
     </svg>
   );
 }
@@ -110,8 +129,8 @@ function UndoDeleteNote({ deleted, bookmarks }: { deleted: Bookmark; bookmarks: 
 }
 
 /**
- * Adding a bookmark (🔖+, key B) and jumping to ↺'s target (↺, key R), with a menu to choose that
- * target. Jumps go exactly to the mark: bookmarks can be placed precisely, so they are taken as
+ * Adding a bookmark (🔖+, key B), setting the active bookmark's loop end (⇥, key E), and jumping to
+ * ↺'s target (↺, key R), with a menu to choose that target. Jumps go exactly to the mark: bookmarks can be placed precisely, so they are taken as
  * meant.
  */
 export function BookmarkControls({
@@ -144,7 +163,7 @@ export function BookmarkControls({
     }
     setAdding(true);
     try {
-      const added = await bookmarks.add(positionMs, "");
+      const added = await bookmarks.add(positionMs, "", null);
       bookmarks.setActiveId(added.id);
     } catch (err) {
       console.error(err);
@@ -155,6 +174,18 @@ export function BookmarkControls({
   };
 
   const jumpToActive = () => onJump(active ? active.positionMs : lastPlayStartMs);
+
+  // A loop end needs some passage after the bookmark to close.
+  const canSetLoopEnd = active !== null && positionMs >= active.positionMs + MIN_LOOP_MS;
+  const setLoopEndHere = () => {
+    if (!active || !canSetLoopEnd) {
+      return;
+    }
+    bookmarks.update({ ...active, endMs: positionMs }).catch((err: unknown) => {
+      console.error(err);
+      window.alert("Setting the loop end failed.");
+    });
+  };
 
   // Subscribes anew on every render, so that the handler always sees the current position.
   useEffect(() => {
@@ -171,6 +202,9 @@ export function BookmarkControls({
         case "r":
           jumpToActive();
           break;
+        case "e":
+          setLoopEndHere();
+          break;
       }
     };
     window.addEventListener("keydown", handler);
@@ -181,11 +215,34 @@ export function BookmarkControls({
     ? `Back to “${bookmarkName(active)}” (R)`
     : `Back to where Play was last pressed, ${formatPosition(lastPlayStartMs)} (R)`;
 
+  const loopEndTitle = !active
+    ? ""
+    : !canSetLoopEnd
+      ? `To set the loop end of “${bookmarkName(active)}”, play past it (E)`
+      : `${active.endMs === null ? "Set" : "Move"} the loop end of “${bookmarkName(active)}” here: playback returns to it from here (E)`;
+
   return (
     <div className="relative flex items-center gap-1">
-      <ControlButton variant="secondary" title="Add bookmark here (B)" onClick={addHere}>
+      <ControlButton
+        variant="secondary"
+        title="Add bookmark here (B)"
+        disabled={false}
+        onClick={addHere}
+      >
         <BookmarkIcon />+
       </ControlButton>
+      {active && (
+        <ControlButton
+          variant="secondary"
+          title={loopEndTitle}
+          disabled={!canSetLoopEnd}
+          onClick={setLoopEndHere}
+        >
+          <span className={JUMP_TARGET_TEXT_CLASSES}>
+            <LoopEndIcon />
+          </span>
+        </ControlButton>
+      )}
       <SplitControlButton
         title={jumpTitle}
         onClick={jumpToActive}

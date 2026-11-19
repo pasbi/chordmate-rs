@@ -9,7 +9,8 @@ Bookmarks are implemented (see the README). Possible next steps:
 - Optional count-in before a jump (one bar from the BPM with the metronome), if starting
   exactly at the mark turns out to be too abrupt. A fixed 2 s pre-roll was tried and dropped:
   bookmarks can be placed precisely, so jumps go exactly there.
-- A–B loop between two bookmarks, with a repeat count.
+- A–B loop extras, if practice asks for them: a repeat count, or a short pause before each
+  repeat to get the hands back in position.
 - Foot pedal support (page-turner pedals often send arrow keys or PageUp/PageDown, which
   collide with the seek shortcuts).
 - Tune the editor's shift step (now 0.25 s) after some practice with it.

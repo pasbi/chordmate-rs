@@ -14,13 +14,28 @@ html {
   touch-action: pan-x pan-y;
 }
 
-/* The playback position slider draws all of itself: the gray bar is the input's own background,
+/* The playback position slider draws all of itself: the bar is the input's own background,
    and the thumb a plain 16 px circle on every browser. Firefox for Android drew its own white,
    shadowed thumb and its own track over the bar, and left 1 px unpainted gaps in the bar as the
    thumb moved. Its own compositing layer makes the slider repaint as a whole. The marker strip
    above the slider relies on the 16 px size. */
 .position-slider {
   will-change: transform;
+  /* The bar, amber between a loop's start and end (set inline; no loop without them). */
+  --slider-bar: var(--color-gray-300);
+  --slider-loop: var(--color-amber-400);
+  background: linear-gradient(
+    to right,
+    var(--slider-bar) var(--loop-start, 0%),
+    var(--slider-loop) var(--loop-start, 0%) var(--loop-end, 0%),
+    var(--slider-bar) var(--loop-end, 0%)
+  );
+}
+@media (prefers-color-scheme: dark) {
+  .position-slider {
+    --slider-bar: var(--color-gray-600);
+    --slider-loop: var(--color-amber-500);
+  }
 }
 .position-slider::-moz-range-track,
 .position-slider::-moz-range-progress {

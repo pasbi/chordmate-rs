@@ -8,6 +8,8 @@ import {
   formatPosition,
   formatPrecisePosition,
   JUMP_TARGET_TEXT_CLASSES,
+  loopEndListenPosition,
+  MIN_LOOP_MS,
 } from "./bookmarkUi";
 import { FloatingMenu } from "./ContextMenu";
 import { INPUT_CLASSES } from "./inputClasses";
@@ -77,6 +79,15 @@ function MarkerButton({
     >
       {children}
     </button>
+  );
+}
+
+/** A bar closing the passage on its left, for the active bookmark's loop end. */
+function LoopEndMarker() {
+  return (
+    <svg viewBox="0 0 6 10" className="w-1.5 h-2.5" fill="currentColor" aria-hidden="true">
+      <path d="M4 0h2v10H0V8h4z" />
+    </svg>
   );
 }
 
@@ -158,9 +169,19 @@ function NameInput({
   );
 }
 
+/** A row's letter, A for the bookmark's position and B for its loop end. */
+function RowLetter({ letter }: { letter: string }) {
+  return (
+    <span className={`w-3 text-sm font-semibold ${JUMP_TARGET_TEXT_CLASSES}`} aria-hidden="true">
+      {letter}
+    </span>
+  );
+}
+
 /**
  * Edits one bookmark at its marker: rename, shift (each step plays from the new position), listen
- * from the exact mark, delete (undone from the note beside the bookmark buttons).
+ * from the exact mark, delete (undone from the note beside the bookmark buttons). With a loop end
+ * B, also shift B (each step plays up to it) or remove it.
  */
 function BookmarkEditor({
   bookmark,
@@ -184,10 +205,25 @@ function BookmarkEditor({
     window.alert(`${action} the bookmark failed.`);
   };
 
+  const { endMs } = bookmark;
   const shift = (deltaMs: number) => {
-    const positionMs = Math.min(Math.max(bookmark.positionMs + deltaMs, 0), durationMs);
+    // The position stays before the loop end, which stays after it.
+    const latestMs = endMs === null ? durationMs : endMs - MIN_LOOP_MS;
+    const positionMs = Math.min(Math.max(bookmark.positionMs + deltaMs, 0), latestMs);
     bookmarks.update({ ...bookmark, positionMs }).catch(report("Shifting"));
     onListen(positionMs);
+  };
+
+  const shiftEnd = (currentEndMs: number, deltaMs: number) => {
+    const earliestMs = bookmark.positionMs + MIN_LOOP_MS;
+    const newEndMs = Math.min(Math.max(currentEndMs + deltaMs, earliestMs), durationMs);
+    const shifted = { ...bookmark, endMs: newEndMs };
+    bookmarks.update(shifted).catch(report("Shifting the loop end of"));
+    onListen(loopEndListenPosition(shifted));
+  };
+
+  const removeEnd = () => {
+    bookmarks.update({ ...bookmark, endMs: null }).catch(report("Removing the loop end of"));
   };
 
   const remove = () => {
@@ -203,6 +239,7 @@ function BookmarkEditor({
           onRename={(label) => bookmarks.update({ ...bookmark, label }).catch(report("Renaming"))}
         />
         <div className="flex items-center gap-1">
+          {endMs !== null && <RowLetter letter="A" />}
           <SmallButton
             title={`${SHIFT_STEP_MS / 1000} s earlier`}
             onClick={() => shift(-SHIFT_STEP_MS)}
@@ -226,6 +263,36 @@ function BookmarkEditor({
             🗑
           </SmallButton>
         </div>
+        {endMs !== null && (
+          <div className="flex items-center gap-1">
+            <RowLetter letter="B" />
+            <SmallButton
+              title={`Loop end ${SHIFT_STEP_MS / 1000} s earlier`}
+              onClick={() => shiftEnd(endMs, -SHIFT_STEP_MS)}
+            >
+              −
+            </SmallButton>
+            <span className="min-w-[6ch] text-center text-sm tabular-nums">
+              {formatPrecisePosition(endMs)}
+            </span>
+            <SmallButton
+              title={`Loop end ${SHIFT_STEP_MS / 1000} s later`}
+              onClick={() => shiftEnd(endMs, SHIFT_STEP_MS)}
+            >
+              +
+            </SmallButton>
+            <span className="flex-1" />
+            <SmallButton
+              title="Listen to the loop end"
+              onClick={() => onListen(loopEndListenPosition({ ...bookmark, endMs }))}
+            >
+              ▶
+            </SmallButton>
+            <SmallButton title="Remove the loop end" onClick={removeEnd}>
+              ✕
+            </SmallButton>
+          </div>
+        )}
       </div>
     </FloatingMenu>
   );
@@ -273,6 +340,7 @@ export function BookmarkMarkers({
   // The thumb's center can't reach the slider's ends: it stays half a thumb (~16 px) away.
   const markerLeft = (positionMs: number) => `calc(8px + (100% - 16px) * ${fraction(positionMs)})`;
   const active = bookmarks.bookmarks.find((bookmark) => bookmark.id === bookmarks.activeId) ?? null;
+  const activeEndMs = active?.endMs ?? null;
   // The editor opens below the slider, not at the pointer: shifting a bookmark should be
   // watchable on the slider. The thumb reaches 4 px below the slider's track.
   const editAt = (bookmark: Bookmark) => (x: number, pointerY: number) => {
@@ -302,6 +370,18 @@ export function BookmarkMarkers({
               <span className="w-1.5 h-1.5 rounded-full bg-gray-400 dark:bg-gray-500 transition-transform group-hover:scale-150 group-hover:bg-amber-500 dark:group-hover:bg-amber-400" />
             </MarkerButton>
           ))}
+        {active && activeEndMs !== null && (
+          <MarkerButton
+            left={markerLeft(activeEndMs)}
+            title={`Loop end of ${bookmarkName(active)} – click to listen, ${editHint}`}
+            label={`Listen to the loop end of “${bookmarkName(active)}”`}
+            onSelect={() => onListen(loopEndListenPosition({ ...active, endMs: activeEndMs }))}
+            onEdit={editAt(active)}
+            className={JUMP_TARGET_TEXT_CLASSES}
+          >
+            <LoopEndMarker />
+          </MarkerButton>
+        )}
         {/* Drawn last, so that no dot covers it. */}
         {active ? (
           <MarkerButton
@@ -315,7 +395,7 @@ export function BookmarkMarkers({
             <ActiveBookmarkMarker />
             <ActiveName
               name={bookmarkName(active)}
-              onRightHalf={fraction(active.positionMs) > 0.5}
+              onRightHalf={fraction(active.positionMs) > (active.endMs === null ? 0.5 : 0.25)}
             />
           </MarkerButton>
         ) : (

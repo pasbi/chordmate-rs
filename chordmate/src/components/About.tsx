@@ -2,6 +2,9 @@ const SHORTCUTS: [string, string][] = [
   ["Space", "Play / pause"],
   ["← / →", "Back / forward 1 s"],
   ["Ctrl + ← / Ctrl + →", "Back / forward 10 s"],
+  ["B", "Add a bookmark here"],
+  ["E", "Set the active bookmark's loop end here"],
+  ["R", "Back to the active bookmark"],
   ["↑ / ↓", "Scroll the chord sheet"],
   ["Esc", "Close a dialog"],
 ];

@@ -24,6 +24,10 @@ browser, and a BPM with a metronome.
   (or choosing it in the ▾ menu) makes it active and moves there;
   right-clicking or long-pressing it renames, shifts, plays or deletes it. A
   bookmark without a name shows its current time.
+  A–B loop: with a bookmark active, ⇥ (or `E`) sets its loop end B at the
+  current position (again to move it). Played from within the passage, playback
+  returns to the bookmark at B, again and again; the slider's bar shows the
+  passage in amber. The bookmark's editor shifts or removes B.
   Bookmarks belong to the song's current Spotify track: linking another track
   hides them, linking the old one again brings them back. With no bookmark
   active, ↺ returns to where Play was last pressed.
@@ -155,10 +159,13 @@ The app is then available at http://localhost:8080 (backend on port 3000).
 
 Outside of edit mode, on a song page:
 
-| Key                   | Action                    |
-|-----------------------|---------------------------|
-| Space                 | Play / pause              |
-| ← / →                 | Seek 1 s back / forward   |
-| Ctrl + ← / Ctrl + →   | Seek 10 s back / forward  |
-| ↑ / ↓                 | Scroll the chord sheet    |
-| Esc                   | Close a dialog or popover |
+| Key                 | Action                                  |
+|---------------------|-----------------------------------------|
+| Space               | Play / pause                            |
+| ← / →               | Seek 1 s back / forward                 |
+| Ctrl + ← / Ctrl + → | Seek 10 s back / forward                |
+| B                   | Add a bookmark here                     |
+| E                   | Set the active bookmark's loop end here |
+| R                   | Back to the active bookmark             |
+| ↑ / ↓               | Scroll the chord sheet                  |
+| Esc                 | Close a dialog or popover               |

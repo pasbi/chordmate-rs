@@ -8,6 +8,7 @@ const BOOKMARK_FIELDS = gql`
     id
     positionMs
     label
+    endMs
   }
 `;
 
@@ -22,12 +23,19 @@ const GET_BOOKMARKS = gql`
 
 const ADD_BOOKMARK = gql`
   ${BOOKMARK_FIELDS}
-  mutation AddBookmark($songId: Int!, $spotifyTrack: String!, $positionMs: Int!, $label: String!) {
+  mutation AddBookmark(
+    $songId: Int!
+    $spotifyTrack: String!
+    $positionMs: Int!
+    $label: String!
+    $endMs: Int
+  ) {
     addBookmark(
       songId: $songId
       spotifyTrack: $spotifyTrack
       positionMs: $positionMs
       label: $label
+      endMs: $endMs
     ) {
       ...BookmarkFields
     }
@@ -36,8 +44,8 @@ const ADD_BOOKMARK = gql`
 
 const UPDATE_BOOKMARK = gql`
   ${BOOKMARK_FIELDS}
-  mutation UpdateBookmark($id: Int!, $positionMs: Int!, $label: String!) {
-    updateBookmark(id: $id, positionMs: $positionMs, label: $label) {
+  mutation UpdateBookmark($id: Int!, $positionMs: Int!, $label: String!, $endMs: Int) {
+    updateBookmark(id: $id, positionMs: $positionMs, label: $label, endMs: $endMs) {
       ...BookmarkFields
     }
   }
@@ -64,6 +72,7 @@ interface AddBookmarkVars {
   spotifyTrack: string;
   positionMs: number;
   label: string;
+  endMs: number | null;
 }
 interface UpdateBookmarkData {
   // The type name lets the optimistic response update the cached bookmark.
@@ -73,6 +82,7 @@ interface UpdateBookmarkVars {
   id: number;
   positionMs: number;
   label: string;
+  endMs: number | null;
 }
 interface DeleteBookmarkData {
   deleteBookmark: boolean;
@@ -132,6 +142,10 @@ function useActiveBookmarkId(songId: number, spotifyTrack: string, bookmarks: Bo
   return { activeId, setActiveId };
 }
 
+function roundOrNull(milliseconds: number | null) {
+  return milliseconds === null ? null : Math.round(milliseconds);
+}
+
 export type Bookmarks = ReturnType<typeof useBookmarks>;
 
 type RemovedBookmark = { bookmark: Bookmark; wasActive: boolean; spotifyTrack: string };
@@ -159,9 +173,15 @@ export function useBookmarks(songId: number, spotifyTrack: string) {
   const { activeId, setActiveId } = useActiveBookmarkId(songId, spotifyTrack, bookmarks);
 
   /** Adds a bookmark and returns it. */
-  const add = async (positionMs: number, label: string) => {
+  const add = async (positionMs: number, label: string, endMs: number | null) => {
     const result = await addMutation({
-      variables: { songId, spotifyTrack, positionMs: Math.round(positionMs), label },
+      variables: {
+        songId,
+        spotifyTrack,
+        positionMs: Math.round(positionMs),
+        label,
+        endMs: roundOrNull(endMs),
+      },
       refetchQueries,
       awaitRefetchQueries: true,
     });
@@ -178,6 +198,7 @@ export function useBookmarks(songId: number, spotifyTrack: string) {
         id: bookmark.id,
         positionMs: Math.round(bookmark.positionMs),
         label: bookmark.label,
+        endMs: roundOrNull(bookmark.endMs),
       },
       optimisticResponse: { updateBookmark: { __typename: "Bookmark", ...bookmark } },
     });
@@ -203,7 +224,8 @@ export function useBookmarks(songId: number, spotifyTrack: string) {
       return;
     }
     setRemoved(null);
-    const restored = await add(lastRemoved.bookmark.positionMs, lastRemoved.bookmark.label);
+    const { positionMs, label, endMs } = lastRemoved.bookmark;
+    const restored = await add(positionMs, label, endMs);
     if (lastRemoved.wasActive) {
       setActiveId(restored.id);
     }
