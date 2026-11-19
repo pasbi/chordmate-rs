@@ -12,6 +12,25 @@ const GET_SONG = gql`
       spotifyTrack
       albumArtUrl
       bpm
+      transpose
+    }
+  }
+`;
+
+interface UpdateSongTransposeData {
+  // The type name lets the optimistic response update the cached song.
+  updateSongTranspose: { __typename: "Song"; id: number; transpose: number };
+}
+interface UpdateSongTransposeVars {
+  id: number;
+  transpose: number;
+}
+
+const UPDATE_SONG_TRANSPOSE = gql`
+  mutation UpdateSongTranspose($id: Int!, $transpose: Int!) {
+    updateSongTranspose(id: $id, transpose: $transpose) {
+      id
+      transpose
     }
   }
 `;
@@ -84,6 +103,10 @@ export default function useSong(id: number) {
 
   const [updateSongMeta] = useMutation<UpdateSongMetaData, UpdateSongMetaVars>(UPDATE_SONG_META);
 
+  const [updateSongTranspose] = useMutation<UpdateSongTransposeData, UpdateSongTransposeVars>(
+    UPDATE_SONG_TRANSPOSE
+  );
+
   const saveContent = async (content: string) => {
     if (!id) return;
     await updateSongContent({
@@ -122,6 +145,14 @@ export default function useSong(id: number) {
     });
   };
 
+  // Applied to the cache at once, so that quickly repeated presses build on each other.
+  const saveTranspose = async (transpose: number) => {
+    await updateSongTranspose({
+      variables: { id, transpose },
+      optimisticResponse: { updateSongTranspose: { __typename: "Song", id, transpose } },
+    });
+  };
+
   return {
     song: data?.song,
     loading,
@@ -129,5 +160,6 @@ export default function useSong(id: number) {
     saveContent,
     saveTrack,
     saveSongMeta,
+    saveTranspose,
   };
 }

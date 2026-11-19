@@ -6,6 +6,8 @@ export default interface Song {
   content: string;
   albumArtUrl: string | null;
   bpm: number | null;
+  /** Semitones the chords are shifted by when shown; the content stays as written. */
+  transpose: number;
 }
 
 /**

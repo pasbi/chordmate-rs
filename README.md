@@ -12,6 +12,9 @@ browser, and a BPM with a metronome.
   as pasted from Ultimate Guitar, are converted on paste (undo once to keep the
   pasted text). Songs saved in the old format are converted with
   `npm run convert-songs` (in `chordmate/`; dry run unless `--apply` is given).
+- Transposing a song's chords by semitones (in the "Aa" popover, saved with the
+  song), e.g. to match the recording. The sheet's source stays as written;
+  transposed notes are written with sharps.
 - Spotify search to link a song to a track; in-browser playback through the
   Spotify Web Playback SDK (requires Spotify Premium).
 - Playback on another Spotify device instead: a tablet can show the sheet and

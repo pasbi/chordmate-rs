@@ -1,5 +1,6 @@
 use crate::bookmark::Bookmark;
 use crate::database_connection::DatabaseConnection;
+use crate::song::Song;
 use juniper::{graphql_object, FieldResult};
 
 use log::info;
@@ -66,6 +67,16 @@ impl QLMutation {
             .query_one(&statement, &[&id, &title, &artist, &album_art_url, &bpm])
             .await?;
         Ok(row.try_get("id")?)
+    }
+
+    /// Sets the semitones the song's chords are shifted by when shown.
+    async fn update_song_transpose(&self, id: i32, transpose: i32) -> FieldResult<Song> {
+        let client = self.database_connection.get().await?;
+        let statement = client
+            .prepare("UPDATE songs SET transpose = $2 WHERE id = $1 RETURNING *;")
+            .await?;
+        let row = client.query_one(&statement, &[&id, &transpose]).await?;
+        Ok(Song::from_row(&row)?)
     }
 
     async fn add_bookmark(

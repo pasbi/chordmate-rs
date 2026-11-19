@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { type Chord, parseChordPro, type Segment, type SheetLine } from "../lib/chordPro.ts";
+import { transposeChord } from "../lib/transpose.ts";
 
 function ChordLabel({ chord }: { chord: Chord }) {
   return (
@@ -86,9 +87,29 @@ function SheetLineView({ line }: { line: SheetLine }) {
   }
 }
 
-/** Renders a song's ChordPro source for reading and playing. */
-export default function ChordSheet({ source }: { source: string }) {
-  const lines = useMemo(() => parseChordPro(source), [source]);
+function transposeLine(line: SheetLine, semitones: number): SheetLine {
+  if (line.kind !== "lyrics") {
+    return line;
+  }
+  const transposeSegment = (segment: Segment): Segment =>
+    segment.chord === null || segment.chord.isAnnotation
+      ? segment
+      : {
+          ...segment,
+          chord: { ...segment.chord, text: transposeChord(segment.chord.text, semitones) },
+        };
+  return { ...line, segments: line.segments.map(transposeSegment) };
+}
+
+/**
+ * Renders a song's ChordPro source for reading and playing, with its chords shifted by
+ * `transpose` semitones.
+ */
+export default function ChordSheet({ source, transpose }: { source: string; transpose: number }) {
+  const lines = useMemo(
+    () => parseChordPro(source).map((line) => transposeLine(line, transpose)),
+    [source, transpose]
+  );
   return (
     <div>
       {lines.map((line, index) => (

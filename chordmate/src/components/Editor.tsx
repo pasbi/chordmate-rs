@@ -123,10 +123,12 @@ interface EditorProps {
   onUpdate?: (content: string) => void;
   editable: boolean;
   fontSize: number;
+  /** Semitones the rendered sheet's chords are shifted by; the source is edited as written. */
+  transpose: number;
 }
 
 /** The song sheet: ChordPro source while editing, the rendered sheet otherwise. */
-export default function Editor({ content, onUpdate, editable, fontSize }: EditorProps) {
+export default function Editor({ content, onUpdate, editable, fontSize, transpose }: EditorProps) {
   // Songs saved in an earlier format are shown, and edited, as ChordPro.
   const [text, setText] = useState(() => normalizeSongContent(content));
   const [isEmpty, setIsEmpty] = useState(text.trim() === "");
@@ -209,7 +211,7 @@ export default function Editor({ content, onUpdate, editable, fontSize }: Editor
           editor={editor}
           className={`chord-sheet text-current outline-none font-mono ${editable ? "" : "hidden"}`}
         />
-        {!editable && <ChordSheet source={text} />}
+        {!editable && <ChordSheet source={text} transpose={transpose} />}
       </div>
       {editable && (pasteConverted || hasSelection) && (
         <div className="absolute bottom-3 right-3 flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm shadow-lg">

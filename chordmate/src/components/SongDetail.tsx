@@ -27,6 +27,51 @@ import {
   useSheetFontSize,
 } from "../hooks/useSheetFontSize";
 
+/** The most semitones chords can be shifted by, either way (the database allows the same). */
+const MAX_TRANSPOSE = 11;
+
+/** Shifts the sheet's chords by semitones, e.g. to match the recording. Saved with the song. */
+function TransposeControl({
+  transpose,
+  onChange,
+}: {
+  transpose: number;
+  onChange: (transpose: number) => Promise<void>;
+}) {
+  const change = (newTranspose: number) =>
+    onChange(newTranspose).catch((err: unknown) => {
+      console.error(err);
+      window.alert("Saving the transposition failed.");
+    });
+  const shown = transpose === 0 ? "±0" : transpose > 0 ? `+${transpose}` : `−${-transpose}`;
+  return (
+    <div className="flex items-center gap-2">
+      <Button
+        variant="secondary"
+        title="Transpose down a semitone"
+        disabled={transpose <= -MAX_TRANSPOSE}
+        onClick={() => void change(transpose - 1)}
+      >
+        −
+      </Button>
+      <span
+        className="min-w-[4.5ch] shrink-0 text-center tabular-nums"
+        title="Transposed by semitones"
+      >
+        ♯♭ {shown}
+      </span>
+      <Button
+        variant="secondary"
+        title="Transpose up a semitone"
+        disabled={transpose >= MAX_TRANSPOSE}
+        onClick={() => void change(transpose + 1)}
+      >
+        +
+      </Button>
+    </div>
+  );
+}
+
 function PencilIcon({ className }: { className: string }) {
   return (
     <svg viewBox="0 0 16 16" className={className} fill="currentColor" aria-hidden="true">
@@ -59,7 +104,7 @@ function useWarnBeforeUnload(active: boolean) {
 export default function SongDetail() {
   const { id: idString } = useParams<{ id: string }>();
   const id = parseInt(idString!);
-  const { song, loading, error, saveContent, saveTrack, saveSongMeta } = useSong(id);
+  const { song, loading, error, saveContent, saveTrack, saveSongMeta, saveTranspose } = useSong(id);
   const bookmarks = useBookmarks(id, song?.spotifyTrack ?? "");
   // null while the sheet has not been edited since the last save.
   const [editedContent, setEditedContent] = useState<string | null>(null);
@@ -200,7 +245,7 @@ export default function SongDetail() {
         <Button
           variant="secondary"
           size="icon"
-          title="Font size and fullscreen"
+          title="Font size, transpose and fullscreen"
           aria-expanded={open}
           onClick={toggle}
         >
@@ -228,6 +273,7 @@ export default function SongDetail() {
             +
           </Button>
         </div>
+        {song && <TransposeControl transpose={song.transpose} onChange={saveTranspose} />}
         {fullscreen.supported && (
           <Button variant="secondary" aria-pressed={fullscreen.active} onClick={fullscreen.toggle}>
             {fullscreen.active ? "Exit fullscreen" : "Fullscreen"}
@@ -334,6 +380,7 @@ export default function SongDetail() {
           onUpdate={setEditedContent}
           editable={editMode}
           fontSize={fontSize}
+          transpose={song.transpose}
         />
       </div>
 
