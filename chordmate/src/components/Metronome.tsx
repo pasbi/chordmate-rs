@@ -31,8 +31,8 @@ export const Metronome = forwardRef<MetronomeHandle>((_, ref) => {
   );
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Button variant="primary" className="min-w-16" onClick={running ? stop : start}>
+    <div className="flex flex-1 items-center gap-2">
+      <Button variant="primary" className="flex-1" onClick={running ? stop : start}>
         {running ? "Stop" : "Start"}
       </Button>
       <label className="flex items-center gap-1.5">
@@ -46,7 +46,7 @@ export const Metronome = forwardRef<MetronomeHandle>((_, ref) => {
         />
         <span className="text-sm select-none">BPM</span>
       </label>
-      <Button variant={blink ? "success" : "secondary"} onClick={tap}>
+      <Button variant={blink ? "success" : "secondary"} className="flex-1" onClick={tap}>
         Tap
       </Button>
     </div>

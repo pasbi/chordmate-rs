@@ -154,7 +154,7 @@ function FullscreenIcon({ exit }: { exit: boolean }) {
   );
 }
 
-/** − value +, for values changed in steps. Quick taps must neither zoom nor select text. */
+/** − value +, across the row, for values changed in steps. Quick taps must neither zoom nor select text. */
 function StepControl({
   value,
   valueTitle,
@@ -173,20 +173,22 @@ function StepControl({
   onStep: (step: -1 | 1) => void;
 }) {
   return (
-    <div className="flex items-center gap-2 select-none">
+    <div className="flex flex-1 items-center gap-2 select-none">
       <Button
         variant="secondary"
+        className="flex-1"
         title={decreaseTitle}
         disabled={!canDecrease}
         onClick={() => onStep(-1)}
       >
         −
       </Button>
-      <span className="min-w-[4.5ch] shrink-0 text-center tabular-nums" title={valueTitle}>
+      <span className="w-14 shrink-0 text-center tabular-nums" title={valueTitle}>
         {value}
       </span>
       <Button
         variant="secondary"
+        className="flex-1"
         title={increaseTitle}
         disabled={!canIncrease}
         onClick={() => onStep(1)}
