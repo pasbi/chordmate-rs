@@ -9,9 +9,16 @@ body,
 
 /* The page never zooms, neither by pinching nor by a double tap: quickly repeated taps on a
    control (e.g. shifting a bookmark) would zoom otherwise. Only scrolling is left; the sheet has
-   its own font size. Touch actions apply to all descendants. */
-html {
+   its own font size. Set on every element: browsers don't carry it from the page into a scroll
+   container such as the sheet, and in "desktop site" mode Firefox for Android ignores the
+   viewport's user-scalable=no. */
+* {
   touch-action: pan-x pan-y;
+}
+
+/* Quickly repeated taps on a button must not select its text, or text beside it. */
+button {
+  user-select: none;
 }
 
 /* The playback position slider draws all of itself: the bar is the input's own background,

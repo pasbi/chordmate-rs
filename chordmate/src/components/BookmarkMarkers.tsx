@@ -238,7 +238,7 @@ function BookmarkEditor({
           bookmark={bookmark}
           onRename={(label) => bookmarks.update({ ...bookmark, label }).catch(report("Renaming"))}
         />
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 select-none">
           {endMs !== null && <RowLetter letter="A" />}
           <SmallButton
             title={`${SHIFT_STEP_MS / 1000} s earlier`}
@@ -264,7 +264,7 @@ function BookmarkEditor({
           </SmallButton>
         </div>
         {endMs !== null && (
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1 select-none">
             <RowLetter letter="B" />
             <SmallButton
               title={`Loop end ${SHIFT_STEP_MS / 1000} s earlier`}
