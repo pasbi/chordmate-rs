@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Starts the dev database (Docker), the backend and the frontend.
+# Starts the database (Docker, shared with prod.sh), pgAdmin, the backend and the frontend.
 # Keys: r = rebuild and restart the backend, q or Ctrl+C = stop everything.
 set -euo pipefail
 
@@ -13,6 +13,7 @@ fi
 
 cd "$(dirname "$0")/.."
 
+source scripts/compose.sh
 source .env
 # The backend reads its database settings from these variables.
 export DB_HOST=localhost DB_PORT=5432 DB_NAME=postgres DB_USER=postgres
@@ -42,14 +43,14 @@ start_backend() {
 cleanup() {
   stop "$backend_pid"
   stop "$frontend_pid"
-  # Removed, not just stopped: a stopped container keeps pointing to the shared network, which
-  # prod.sh removes when it stops, and then can't start again. The database volume stays.
-  docker compose --profile dev down
+  remove_setup dev pgadmin prod backend
 }
 trap cleanup EXIT
 trap 'exit 130' INT TERM
 
-docker compose --profile dev up -d --wait
+# --remove-orphans: containers of services no longer in docker-compose.yml go first, such as a
+# database container from before the setups shared one.
+docker compose --profile dev up -d --wait --remove-orphans
 start "cd chordmate && exec npm run dev -- --host"
 frontend_pid=$!
 start_backend

@@ -1,23 +1,6 @@
-# Commands:
-# docker compose --profile dev up     # Start dev database + pgadmin, requires the back- and front-end to be run manually:
-#                                          cargo run --package chordmate --bin chordmate -- --db-host ...
-#                                          npm run dev  # tells you where to open your browser
-# docker compose --profile prod up    # Start production all-in-one, find the app at `http://localhost:8080`.
-
-x-database-base: &database-base
-    image: 'docker.io/postgres:latest'
-    healthcheck:
-      test: ["CMD", "pg_isready", "-U", "postgres"]
-      interval: 5s
-      retries: 5
-    environment:
-      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
-    volumes:
-      - pg-data:/var/lib/postgresql
-    networks:
-      internal:
-        aliases:
-          - database
+# Started by scripts/dev.sh (profile dev: database and pgAdmin; backend and frontend run outside
+# Docker) and scripts/prod.sh (profile prod: database, migrations, backend, frontend at
+# http://localhost:8080). Both profiles share the database container.
 
 # How the backend and its migrations reach the database (read by backend/src/arguments.rs).
 x-database-connection: &database-connection
@@ -36,7 +19,7 @@ services:
     entrypoint: ["./migrate"]
     environment: *database-connection
     depends_on:
-      database-prod:
+      database:
         condition: service_healthy
     profiles:
       - "prod"
@@ -61,17 +44,28 @@ services:
     networks:
       internal:
 
-  database-dev:
-    <<: *database-base
+  # The one database of both setups: dev and prod share the data, so they must share the
+  # Postgres server too. Two servers on one data directory corrupt it, and Postgres can't tell
+  # from inside a container that another one runs. The fixed name makes Docker refuse a second
+  # container, also from a manual `docker compose -p other …`.
+  database:
+    container_name: chordmate-database
+    image: 'docker.io/postgres:latest'
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      retries: 5
+    environment:
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+    volumes:
+      - pg-data:/var/lib/postgresql
     ports:
-      - "5432:5432"  # only required to connect backends from outside to the database
+      - "127.0.0.1:5432:5432"  # for backends running outside Docker (dev.sh), on this PC only
     profiles:
       - "dev"
-
-  database-prod:
-    <<: *database-base
-    profiles:
       - "prod"
+    networks:
+      internal:
 
   pgadmin:
     image: 'docker.io/dpage/pgadmin4:latest'
@@ -81,7 +75,7 @@ services:
     ports:
       - 15080:80
     depends_on:
-      database-dev:
+      database:
         condition: service_healthy
     volumes:
       - pgadmin-data:/var/lib/pgadmin/

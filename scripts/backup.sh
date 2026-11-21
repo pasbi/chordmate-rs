@@ -3,19 +3,20 @@
 # The Spotify login is left out; log in again after restoring.
 #
 # Restore (replaces the current contents):
-#   docker compose exec -T <database service> pg_restore -U postgres -d postgres --clean --if-exists < FILE
+#   docker exec -i chordmate-database pg_restore -U postgres -d postgres --clean --if-exists < FILE
 set -euo pipefail
 
 output=$(realpath -m "${1:-chordmate-$(date +%F-%H%M%S).dump}")
 cd "$(dirname "$0")/.."
 
-service=$(docker compose --profile dev --profile prod ps --services --status running | grep '^database-' || true)
-if [[ -z "$service" ]]; then
-  echo "No database is running. Start it with: docker compose --profile dev up" >&2
+# The one database container of both setups (see docker-compose.yml).
+container=chordmate-database
+if [[ "$(docker inspect --format '{{.State.Running}}' "$container" 2> /dev/null)" != "true" ]]; then
+  echo "The database isn't running. Start it with scripts/dev.sh or scripts/prod.sh." >&2
   exit 1
 fi
 
-docker compose exec -T "$service" \
+docker exec "$container" \
   pg_dump -U postgres -Fc --exclude-table-data=spotify_token postgres > "$output.partial"
 mv "$output.partial" "$output"
-echo "Backed up $service to $output"
+echo "Backed up the database to $output"

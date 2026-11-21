@@ -123,7 +123,7 @@ Requirements: Docker (with compose), Rust, and Node.js 20 (see `chordmate/.nvmrc
 scripts/dev.sh
 ```
 
-starts PostgreSQL (port 5432) and pgAdmin (http://localhost:15080) in Docker,
+starts PostgreSQL (port 5432, this PC only) and pgAdmin (http://localhost:15080) in Docker,
 applies the migrations, and runs the backend (port 3000) and the Vite dev server
 (port 5173, also reachable from other devices on the network). Press `r` to
 rebuild and restart the backend, `q` or Ctrl+C to stop everything. While it
@@ -140,7 +140,7 @@ To run the parts by hand instead: `docker compose --profile dev up`, then in
 scripts/backup.sh
 ```
 
-dumps the running database (dev or prod) to `chordmate-<date>-<time>.dump`,
+dumps the running database to `chordmate-<date>-<time>.dump`,
 without the Spotify login. The restore command is in the script's header.
 
 ### Frontend scripts
@@ -154,16 +154,24 @@ without the Spotify login. The restore command is in the script's header.
 
 ## Production
 
-Builds and starts the database, backend and an nginx-served frontend, in the
-foreground and without letting the PC sleep. New migrations are applied before
-the backend starts. Ctrl+C stops and removes the containers; the database volume
-stays:
+Builds and starts the database, backend and an nginx-served frontend, shows
+their logs, and keeps the PC from sleeping. New migrations are applied before
+the backend starts. Ctrl+C removes the containers; the database volume stays:
 
 ```bash
 scripts/prod.sh
 ```
 
 The app is then available at http://localhost:8080 (backend on port 3000).
+
+### One database for dev and prod
+
+Dev and prod share their data, and therefore one PostgreSQL container,
+`chordmate-database`: two servers on one data directory would corrupt it. Its
+fixed name makes Docker refuse a second one, also when started by hand. Each
+script removes the database when it stops only if the other setup doesn't use
+it. The two setups still can't run at the same time, since both backends use
+port 3000.
 
 ## Keyboard shortcuts
 
