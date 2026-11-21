@@ -4,16 +4,14 @@ Planned features and ideas, roughly in the order they are meant to be done.
 
 ## Bookmark follow-ups
 
-Bookmarks are implemented (see the README). Possible next steps:
+Bookmarks are implemented (see the README). Possible next step:
 
-- Optional count-in before a jump (one bar from the BPM with the metronome), if starting
-  exactly at the mark turns out to be too abrupt. A fixed 2 s pre-roll was tried and dropped:
-  bookmarks can be placed precisely, so jumps go exactly there.
-- A–B loop extras, if practice asks for them: a repeat count, or a short pause before each
-  repeat to get the hands back in position.
 - Foot pedal support (page-turner pedals often send arrow keys or PageUp/PageDown, which
   collide with the seek shortcuts).
-- Tune the editor's shift step (now 0.25 s) after some practice with it.
+
+Decided against: a count-in before a jump, a repeat count or pause for A–B loops, and other
+shift steps than 0.25 s. Placing A a little before a passage and B a little after it gives the
+lead-in and the pause; the loop switch ends a loop; a bookmark further away is set anew.
 
 ## Section timestamps from LRCLIB
 
@@ -39,3 +37,24 @@ Not designed yet; each needs more thought before it is started.
 - **Auto-scroll synced to playback.** Simple version: scroll position = playback position /
   duration. Later: timestamps per section (see the LRCLIB idea above), so the sheet follows the
   song's structure.
+
+## Access from outside home (VPN, Raspberry Pi)
+
+Run ChordMate on the Raspberry Pi and reach it through a VPN, not publicly:
+
+- **VPN:** the FRITZ!Box's built-in WireGuard server (FRITZ!OS 7.50 or newer), one connection
+  per device or person; split tunneling, so that only home addresses go through the tunnel and
+  Spotify's traffic stays direct. The Telekom connection has native IPv6 and most likely a
+  public IPv4 address (to confirm: the Online-Monitor's IPv4 address equals
+  `curl -4 https://ifconfig.me`). Every device needs its own WireGuard app: a phone's VPN
+  doesn't cover what it shares by tethering. Friends: restrict their connections to the Pi.
+- **Name and HTTPS:** `chordmate.<own domain>` pointing to the Pi's address in the home network
+  (only reachable at home or through the VPN), with a Let's Encrypt certificate via the DNS
+  challenge (Caddy; needs a DNS provider with an API). HTTPS also brings the screen wake lock,
+  installing the app, and Spotify's player in the tablet's browser, which away from home
+  replaces the PC's Spotify app.
+- **ChordMate:** Caddy in front of frontend and backend under one address (the frontend then
+  uses a relative backend address instead of port 3000), the Spotify app's redirect address
+  set to the HTTPS one, the database moved with `backup.sh`. About half a day.
+- **Not covered:** friends playing along with their own Spotify: ChordMate has a single Spotify
+  login and no users, so they would play through the owner's account.
