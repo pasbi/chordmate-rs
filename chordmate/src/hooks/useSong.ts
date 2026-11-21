@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import type { Spelling } from "../lib/transpose.ts";
 import { useMutation, useQuery } from "@apollo/client/react";
 import type GetSongData from "../types/GetSongData";
 import { gql } from "@apollo/client";
@@ -14,6 +15,7 @@ const GET_SONG = gql`
       albumArtUrl
       bpm
       transpose
+      spelling
       lastViewedMs
     }
   }
@@ -36,6 +38,23 @@ interface UpdateSongTransposeVars {
   id: number;
   transpose: number;
 }
+
+interface UpdateSongSpellingData {
+  updateSongSpelling: { __typename: "Song"; id: number; spelling: Spelling };
+}
+interface UpdateSongSpellingVars {
+  id: number;
+  spelling: Spelling;
+}
+
+const UPDATE_SONG_SPELLING = gql`
+  mutation UpdateSongSpelling($id: Int!, $spelling: String!) {
+    updateSongSpelling(id: $id, spelling: $spelling) {
+      id
+      spelling
+    }
+  }
+`;
 
 const UPDATE_SONG_TRANSPOSE = gql`
   mutation UpdateSongTranspose($id: Int!, $transpose: Int!) {
@@ -123,6 +142,9 @@ export default function useSong(id: number) {
   const [updateSongTranspose] = useMutation<UpdateSongTransposeData, UpdateSongTransposeVars>(
     UPDATE_SONG_TRANSPOSE
   );
+  const [updateSongSpelling] = useMutation<UpdateSongSpellingData, UpdateSongSpellingVars>(
+    UPDATE_SONG_SPELLING
+  );
 
   const saveContent = async (content: string) => {
     if (!id) return;
@@ -170,6 +192,13 @@ export default function useSong(id: number) {
     });
   };
 
+  const saveSpelling = async (spelling: Spelling) => {
+    await updateSongSpelling({
+      variables: { id, spelling },
+      optimisticResponse: { updateSongSpelling: { __typename: "Song", id, spelling } },
+    });
+  };
+
   return {
     song: data?.song,
     loading,
@@ -178,5 +207,6 @@ export default function useSong(id: number) {
     saveTrack,
     saveSongMeta,
     saveTranspose,
+    saveSpelling,
   };
 }

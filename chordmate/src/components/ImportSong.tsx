@@ -227,7 +227,7 @@ function ImportForm({ imported }: { imported: ImportedSong }) {
         </a>
       </p>
       <div className="p-2 rounded border border-gray-200 dark:border-gray-700" style={{ fontSize }}>
-        <ChordSheet source={content} transpose={transpose} />
+        <ChordSheet source={content} transpose={transpose} spelling="common" />
       </div>
     </div>
   );

@@ -13,6 +13,8 @@ pub struct Song {
     pub bpm: Option<f64>,
     /// Semitones the chords are shifted by when shown; the content stays as written.
     pub transpose: i32,
+    /// How the chords write black-key notes: "common", "sharps" or "flats".
+    pub spelling: String,
     /// When the song's page was last opened, in milliseconds since the Unix epoch; null if never.
     pub last_viewed_ms: Option<f64>,
 }
@@ -34,6 +36,7 @@ impl Song {
             album_art_url: row.try_get("album_art_url")?,
             bpm: row.try_get("bpm")?,
             transpose: row.try_get("transpose")?,
+            spelling: row.try_get("spelling")?,
             last_viewed_ms: row
                 .try_get::<_, Option<SystemTime>>("last_viewed_at")?
                 .map(unix_milliseconds),

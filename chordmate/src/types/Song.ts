@@ -1,3 +1,5 @@
+import type { Spelling } from "../lib/transpose.ts";
+
 export default interface Song {
   id: number;
   title: string;
@@ -8,6 +10,8 @@ export default interface Song {
   bpm: number | null;
   /** Semitones the chords are shifted by when shown; the content stays as written. */
   transpose: number;
+  /** How the chords write black-key notes (see lib/transpose.ts). */
+  spelling: Spelling;
   /** When the song's page was last opened, in milliseconds since the epoch; null if never. */
   lastViewedMs: number | null;
 }

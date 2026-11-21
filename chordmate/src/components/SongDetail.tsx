@@ -14,7 +14,7 @@ import { Modal } from "./Modal.tsx";
 import { Metronome, type MetronomeHandle } from "./Metronome.tsx";
 import { useKeepScreenOn } from "../hooks/useKeepScreenOn";
 import { useFullscreen } from "../hooks/useFullscreen";
-import { wrapTranspose } from "../lib/transpose.ts";
+import { type Spelling, wrapTranspose } from "../lib/transpose.ts";
 import { isSaveShortcut } from "../lib/isTypingTarget.ts";
 import { Popover } from "./Popover.tsx";
 import { NavBarPortal } from "./NavBarPortal.tsx";
@@ -231,6 +231,45 @@ function SaveShortcut({ onSave }: { onSave: () => Promise<void> }) {
   return null;
 }
 
+/** The note names in the order a tap cycles through them, each with how it shows. */
+const SPELLINGS: { spelling: Spelling; label: string; description: string }[] = [
+  { spelling: "common", label: "C♯ E♭", description: "common names: C♯, E♭, F♯, A♭, B♭" },
+  { spelling: "sharps", label: "♯", description: "sharps only: C♯, D♯, F♯, G♯, A♯" },
+  { spelling: "flats", label: "♭", description: "flats only: D♭, E♭, G♭, A♭, B♭" },
+];
+
+/**
+ * How the chords write black-key notes, chosen per song rather than guessed from a key: many
+ * songs change keys, and Ultimate Guitar writes sharps throughout. Shows the current choice; a
+ * tap moves on to the next.
+ */
+function SpellingButton({
+  spelling,
+  onChange,
+}: {
+  spelling: Spelling;
+  onChange: (spelling: Spelling) => Promise<void>;
+}) {
+  const index = SPELLINGS.findIndex((choice) => choice.spelling === spelling);
+  const current = SPELLINGS[index];
+  const next = SPELLINGS[(index + 1) % SPELLINGS.length];
+  const advance = () =>
+    onChange(next.spelling).catch((err: unknown) => {
+      console.error(err);
+      window.alert("Saving the note names failed.");
+    });
+  return (
+    <Button
+      variant="secondary"
+      className="flex-1"
+      title={`Note names: ${current.description}. Tap for ${next.description}.`}
+      onClick={() => void advance()}
+    >
+      {current.label}
+    </Button>
+  );
+}
+
 function PencilIcon({ className }: { className: string }) {
   return (
     <svg viewBox="0 0 16 16" className={className} fill="currentColor" aria-hidden="true">
@@ -263,7 +302,16 @@ function useWarnBeforeUnload(active: boolean) {
 export default function SongDetail() {
   const { id: idString } = useParams<{ id: string }>();
   const id = parseInt(idString!);
-  const { song, loading, error, saveContent, saveTrack, saveSongMeta, saveTranspose } = useSong(id);
+  const {
+    song,
+    loading,
+    error,
+    saveContent,
+    saveTrack,
+    saveSongMeta,
+    saveTranspose,
+    saveSpelling,
+  } = useSong(id);
   const bookmarks = useBookmarks(id, song?.spotifyTrack ?? "");
   // null while the sheet has not been edited since the last save.
   const [editedContent, setEditedContent] = useState<string | null>(null);
@@ -385,24 +433,31 @@ export default function SongDetail() {
           <MenuSection>
             <div className="flex gap-2">
               {fullscreen.supported && (
-                <Button variant="secondary" className="flex-1 gap-2" onClick={fullscreen.toggle}>
+                <Button
+                  variant="secondary"
+                  className="flex-1"
+                  title={fullscreen.active ? "Exit fullscreen" : "Fullscreen"}
+                  aria-label={fullscreen.active ? "Exit fullscreen" : "Fullscreen"}
+                  onClick={fullscreen.toggle}
+                >
                   <FullscreenIcon exit={fullscreen.active} />
-                  {fullscreen.active ? "Exit fullscreen" : "Fullscreen"}
                 </Button>
               )}
               {!editMode && (
                 <Button
                   variant="secondary"
-                  className="flex-1 gap-2"
+                  className="flex-1"
+                  title="Edit the sheet"
+                  aria-label="Edit the sheet"
                   onClick={() => {
                     close();
                     setEditMode(true);
                   }}
                 >
                   <PencilIcon className="w-4 h-4" />
-                  Edit
                 </Button>
               )}
+              <SpellingButton spelling={song.spelling} onChange={saveSpelling} />
             </div>
           </MenuSection>
           <MenuSection>
@@ -545,6 +600,7 @@ export default function SongDetail() {
           editable={editMode}
           fontSize={fontSize}
           transpose={song.transpose}
+          spelling={song.spelling}
           // The Spotify search has the keyboard while it is open (e.g. right after an import).
           focusAtStart={editMode && !searchOpen}
         />

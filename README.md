@@ -17,8 +17,10 @@ browser, and a BPM with a metronome.
   it is created. Chords written for a capo are transposed to match the
   recording, and the Spotify search opens with title and artist.
 - Transposing a song's chords by semitones (in the song's ☰ menu, saved with the
-  song), e.g. to match the recording. The sheet's source stays as written;
-  transposed notes are written with sharps.
+  song), e.g. to match the recording. The sheet's source stays as written.
+  Per song, black-key notes are named the common way (C♯, E♭, F♯, A♭, B♭; the
+  default), with sharps only, or with flats only, also untransposed, so
+  Ultimate Guitar's A# shows as B♭.
 - Spotify search to link a song to a track; in-browser playback through the
   Spotify Web Playback SDK (requires Spotify Premium).
 - Playback on another Spotify device instead: a tablet can show the sheet and

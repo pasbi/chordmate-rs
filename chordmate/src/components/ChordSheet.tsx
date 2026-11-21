@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { type Chord, parseChordPro, type Segment, type SheetLine } from "../lib/chordPro.ts";
-import { transposeChord } from "../lib/transpose.ts";
+import { type Spelling, transposeChord } from "../lib/transpose.ts";
 
 function ChordLabel({ chord }: { chord: Chord }) {
   return (
@@ -87,7 +87,7 @@ function SheetLineView({ line }: { line: SheetLine }) {
   }
 }
 
-function transposeLine(line: SheetLine, semitones: number): SheetLine {
+function transposeLine(line: SheetLine, semitones: number, spelling: Spelling): SheetLine {
   if (line.kind !== "lyrics") {
     return line;
   }
@@ -96,7 +96,10 @@ function transposeLine(line: SheetLine, semitones: number): SheetLine {
       ? segment
       : {
           ...segment,
-          chord: { ...segment.chord, text: transposeChord(segment.chord.text, semitones) },
+          chord: {
+            ...segment.chord,
+            text: transposeChord(segment.chord.text, semitones, spelling),
+          },
         };
   return { ...line, segments: line.segments.map(transposeSegment) };
 }
@@ -105,10 +108,18 @@ function transposeLine(line: SheetLine, semitones: number): SheetLine {
  * Renders a song's ChordPro source for reading and playing, with its chords shifted by
  * `transpose` semitones.
  */
-export default function ChordSheet({ source, transpose }: { source: string; transpose: number }) {
+export default function ChordSheet({
+  source,
+  transpose,
+  spelling,
+}: {
+  source: string;
+  transpose: number;
+  spelling: Spelling;
+}) {
   const lines = useMemo(
-    () => parseChordPro(source).map((line) => transposeLine(line, transpose)),
-    [source, transpose]
+    () => parseChordPro(source).map((line) => transposeLine(line, transpose, spelling)),
+    [source, transpose, spelling]
   );
   return (
     <div>

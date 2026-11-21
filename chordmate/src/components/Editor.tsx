@@ -1,3 +1,4 @@
+import type { Spelling } from "../lib/transpose.ts";
 import { EditorContent, Extension, type JSONContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { closeHistory } from "@tiptap/pm/history";
@@ -125,6 +126,8 @@ interface EditorProps {
   fontSize: number;
   /** Semitones the rendered sheet's chords are shifted by; the source is edited as written. */
   transpose: number;
+  /** How the rendered sheet's notes are written (see lib/transpose.ts). */
+  spelling: Spelling;
   /**
    * Whether the source takes the keyboard, with the cursor at its very beginning: noise at the
    * start of a sheet (a repeated title, a link) can then be removed right away with Delete.
@@ -140,6 +143,7 @@ export default function Editor({
   editable,
   fontSize,
   transpose,
+  spelling,
   focusAtStart,
 }: EditorProps) {
   // Songs saved in an earlier format are shown, and edited, as ChordPro.
@@ -229,7 +233,7 @@ export default function Editor({
           editor={editor}
           className={`chord-sheet text-current outline-none font-mono ${editable ? "" : "hidden"}`}
         />
-        {!editable && <ChordSheet source={text} transpose={transpose} />}
+        {!editable && <ChordSheet source={text} transpose={transpose} spelling={spelling} />}
       </div>
       {editable && (pasteConverted || hasSelection) && (
         <div className="absolute bottom-3 right-3 flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm shadow-lg">

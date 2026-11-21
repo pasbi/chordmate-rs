@@ -69,6 +69,16 @@ impl QLMutation {
         Ok(row.try_get("id")?)
     }
 
+    /// Sets how the song's chords write black-key notes: "common", "sharps" or "flats".
+    async fn update_song_spelling(&self, id: i32, spelling: String) -> FieldResult<Song> {
+        let client = self.database_connection.get().await?;
+        let statement = client
+            .prepare("UPDATE songs SET spelling = $2 WHERE id = $1 RETURNING *;")
+            .await?;
+        let row = client.query_one(&statement, &[&id, &spelling]).await?;
+        Ok(Song::from_row(&row)?)
+    }
+
     /// Records that the song's page was opened now.
     async fn mark_song_viewed(&self, id: i32) -> FieldResult<Song> {
         let client = self.database_connection.get().await?;
