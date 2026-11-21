@@ -7,6 +7,7 @@ const SHORTCUTS: [string, string][] = [
   ["B", "Add a bookmark here"],
   ["E", "Set the active bookmark's loop end here"],
   ["R", "Back to the active bookmark"],
+  ["L", "Loop on / off (play on past the loop end)"],
   ["↑ / ↓", "Scroll the chord sheet"],
   ["Esc", "Close a dialog"],
 ];

@@ -105,6 +105,24 @@ function BookmarkMenuEntry({
   );
 }
 
+/** Two arrows chasing each other around: repeating. */
+function LoopIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className="w-4 h-4"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 7.5V6a2 2 0 0 1 2-2h8M11 2l2 2-2 2M13 8.5V10a2 2 0 0 1-2 2H3M5 14l-2-2 2-2" />
+    </svg>
+  );
+}
+
 /** Lists ↺'s possible targets; choosing one selects it, ✎ edits a bookmark. */
 function BookmarkMenu({
   bookmarks,
@@ -195,6 +213,7 @@ export function BookmarkControls({
   onSelect,
   onJump,
   onEdit,
+  loop,
 }: {
   bookmarks: Bookmarks;
   positionMs: number;
@@ -208,6 +227,8 @@ export function BookmarkControls({
   onJump: (positionMs: number) => void;
   /** Opens a bookmark's editor. */
   onEdit: (bookmark: Bookmark) => void;
+  /** The active bookmark's loop, which can be switched off to play on; null without one. */
+  loop: { on: boolean; toggle: () => void } | null;
 }) {
   const [adding, setAdding] = useState(false);
   const active = bookmarks.bookmarks.find((bookmark) => bookmark.id === bookmarks.activeId) ?? null;
@@ -260,6 +281,9 @@ export function BookmarkControls({
         case "e":
           setLoopEndHere();
           break;
+        case "l":
+          loop?.toggle();
+          break;
       }
     };
     window.addEventListener("keydown", handler);
@@ -297,6 +321,23 @@ export function BookmarkControls({
         >
           <span className={JUMP_TARGET_TEXT_CLASSES}>
             <LoopEndIcon />
+          </span>
+        </ControlButton>
+      )}
+      {loop && (
+        <ControlButton
+          enlargedHitArea={false}
+          variant="secondary"
+          title={
+            loop.on
+              ? "Looping: tap to play on past the loop end (L)"
+              : "Not looping: tap to loop again (L)"
+          }
+          disabled={false}
+          onClick={loop.toggle}
+        >
+          <span className={loop.on ? JUMP_TARGET_TEXT_CLASSES : "text-gray-400 dark:text-gray-500"}>
+            <LoopIcon />
           </span>
         </ControlButton>
       )}

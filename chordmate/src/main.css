@@ -44,6 +44,10 @@ button {
     --slider-loop: var(--color-amber-500);
   }
 }
+/* A loop switched off: its passage stays visible, but pale. */
+.position-slider.loop-off {
+  --slider-loop: color-mix(in srgb, var(--color-amber-400) 35%, var(--slider-bar));
+}
 .position-slider::-moz-range-track,
 .position-slider::-moz-range-progress {
   background: transparent;

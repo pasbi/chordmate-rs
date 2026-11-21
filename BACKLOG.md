@@ -11,10 +11,6 @@ Bookmarks are implemented (see the README). Possible next steps:
   bookmarks can be placed precisely, so jumps go exactly there.
 - A–B loop extras, if practice asks for them: a repeat count, or a short pause before each
   repeat to get the hands back in position.
-- A–B loop: how to break out of it, e.g. to play on into the next section without stopping.
-  Today the loop ends by pausing, choosing another bookmark or "Last play start", removing
-  B, or seeking past B or before the bookmark. Open: a quicker way while playing, such as a
-  loop on/off toggle (with a key), or ending the loop after the current repeat.
 - Foot pedal support (page-turner pedals often send arrow keys or PageUp/PageDown, which
   collide with the seek shortcuts).
 - Tune the editor's shift step (now 0.25 s) after some practice with it.

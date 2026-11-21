@@ -34,7 +34,9 @@ browser, and a BPM with a metronome.
   A–B loop: with a bookmark active, ⇥ (or `E`) sets its loop end B at the
   current position (again to move it). Played from within the passage, playback
   returns to the bookmark at B, again and again; the slider's bar shows the
-  passage in amber. The bookmark's editor shifts or removes B.
+  passage in amber. The bookmark's editor shifts or removes B. The loop button
+  (or `L`) switches the loop off to play on past B into the next section, and
+  on again; choosing a bookmark or setting B starts with the loop on.
   Bookmarks belong to the song's current Spotify track: linking another track
   hides them, linking the old one again brings them back. With no bookmark
   active, ↺ returns to where Play was last pressed.
@@ -185,6 +187,7 @@ Outside of edit mode, on a song page:
 | B                   | Add a bookmark here                     |
 | E                   | Set the active bookmark's loop end here |
 | R                   | Back to the active bookmark             |
+| L                   | Loop on / off                           |
 | ↑ / ↓               | Scroll the chord sheet                  |
 | Esc                 | Close a dialog or popover               |
 

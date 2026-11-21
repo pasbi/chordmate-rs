@@ -399,7 +399,13 @@ export default function SpotifyPlayer({
   );
 
   /** Makes a bookmark, or the last play start for null, ↺'s target, and moves there. */
+  // A loop can be switched off, to play on past its end into the next section. It is identified
+  // by its bookmark and both ends, so that another passage, or a shifted one, loops again.
+  const [loopOffKey, setLoopOffKey] = useState<string | null>(null);
+
   const selectBookmark = (bookmark: Bookmark | null) => {
+    // Choosing a bookmark, even the active one again, starts with its loop on.
+    setLoopOffKey(null);
     bookmarks.setActiveId(bookmark?.id ?? null);
     seekInTrack(bookmark ? bookmark.positionMs : lastPlayStartMs);
   };
@@ -450,8 +456,14 @@ export default function SpotifyPlayer({
     bookmarks.bookmarks.find((bookmark) => bookmark.id === bookmarks.activeId) ?? null;
   const loopStartMs = activeBookmark?.positionMs ?? null;
   const loopEndMs = activeBookmark?.endMs ?? null;
+  const loopKey =
+    activeBookmark === null || loopEndMs === null
+      ? null
+      : `${activeBookmark.id}:${loopStartMs}:${loopEndMs}`;
+  const loopOn = loopKey !== null && loopOffKey !== loopKey;
+  const toggleLoop = () => setLoopOffKey(loopOn ? loopKey : null);
   useEffect(() => {
-    if (state === null || state.paused || loopStartMs === null || loopEndMs === null) {
+    if (!loopOn || state === null || state.paused || loopStartMs === null || loopEndMs === null) {
       return;
     }
     const positionNow = state.position + performance.now() - sample.takenAt;
@@ -460,7 +472,7 @@ export default function SpotifyPlayer({
     }
     const timeout = setTimeout(() => seekInTrack(loopStartMs), loopEndMs - positionNow);
     return () => clearTimeout(timeout);
-  }, [state, sample.takenAt, loopStartMs, loopEndMs, seekInTrack]);
+  }, [loopOn, state, sample.takenAt, loopStartMs, loopEndMs, seekInTrack]);
 
   // The bookmark menu and editor take the keyboard while they are open.
   const [bookmarkOverlay, setBookmarkOverlay] = useState<BookmarkOverlay>(null);
@@ -527,7 +539,9 @@ export default function SpotifyPlayer({
               onListen={jumpAndPlay}
             />
             <input
-              className="position-slider w-full h-2 rounded-lg appearance-none"
+              className={`position-slider w-full h-2 rounded-lg appearance-none ${
+                loopOn ? "" : "loop-off"
+              }`}
               style={loopBandStyle(loopStartMs, loopEndMs, duration)}
               type="range"
               aria-label="Position"
@@ -563,6 +577,7 @@ export default function SpotifyPlayer({
           onSelect={selectBookmark}
           onJump={jumpAndPlay}
           onEdit={editBookmark}
+          loop={loopKey === null ? null : { on: loopOn, toggle: toggleLoop }}
         />
       </div>
     </div>
