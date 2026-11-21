@@ -1,4 +1,4 @@
-import { type RefObject, useCallback, useEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useState } from "react";
 import type { PlayerHandle } from "../components/SpotifyPlayer.tsx";
 import { currentHeadingIndex, type ScrollPoint, scrollTopAt } from "../lib/autoScroll.ts";
 import { isTypingTarget } from "../lib/isTypingTarget.ts";
@@ -10,6 +10,8 @@ const HEADING_POSITION = 0.15;
 const CATCH_UP = 0.15;
 /** Closer than this, the sheet is put exactly in place. */
 const SNAP_PX = 2;
+/** A finger moving less than this is a tap (e.g. on a heading's button), not scrolling. */
+const TOUCH_SLOP_PX = 10;
 const SCROLL_KEYS = new Set(["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End"]);
 
 /** The sheet's headings with their section keys and, if anchored, when their sections start. */
@@ -30,68 +32,88 @@ function anchorPoints(container: HTMLElement, headings: ReturnType<typeof sheetH
 
 /**
  * Scrolls the sheet along with the music while `active` (see lib/autoScroll.ts). Scrolling by
- * hand (wheel, touch, scroll bar, keys) pauses it, so that the sheet stays where it was put; it
- * resumes with `resume`, or once playback reaches an anchored section after the pause.
- * `currentSection` is the key of the section playing (see lib/autoScroll.ts), also while paused.
+ * hand (wheel, touch, scroll bar, keys) calls `onManualScroll`, which is meant to switch it off,
+ * so that the sheet stays where it was put. Returns the key of the section playing.
  */
 export function useAutoScroll({
   active,
   containerRef,
   player,
   anchors,
+  onManualScroll,
 }: {
   active: boolean;
   containerRef: RefObject<HTMLDivElement | null>;
   player: RefObject<PlayerHandle | null>;
   anchors: Map<string, SectionAnchor>;
+  onManualScroll: () => void;
 }) {
-  // The playback position when the user took over scrolling; null while following the music.
-  const [pausedAt, setPausedAtState] = useState<number | null>(null);
-  const pausedAtRef = useRef<number | null>(null);
-  const setPausedAt = useCallback((positionMs: number | null) => {
-    pausedAtRef.current = positionMs;
-    setPausedAtState(positionMs);
-  }, []);
-  const resume = useCallback(() => setPausedAt(null), [setPausedAt]);
   const [currentSection, setCurrentSection] = useState<string | null>(null);
 
+  // On the document, checking the sheet when it happens: the sheet may mount after this runs.
   useEffect(() => {
-    const container = containerRef.current;
-    if (!active || !container) {
+    if (!active) {
       return;
     }
-    const pause = () => {
-      if (pausedAtRef.current === null) {
-        setPausedAt(player.current?.now()?.positionMs ?? 0);
+    const inSheet = (target: EventTarget | null) =>
+      target instanceof Node && containerRef.current?.contains(target) === true;
+    const onWheel = (event: WheelEvent) => {
+      if (inSheet(event.target)) {
+        onManualScroll();
+      }
+    };
+    let touchStartY = 0;
+    const onTouchStart = (event: TouchEvent) => {
+      touchStartY = event.touches[0]?.clientY ?? 0;
+    };
+    const onTouchMove = (event: TouchEvent) => {
+      const y = event.touches[0]?.clientY ?? touchStartY;
+      if (inSheet(event.target) && Math.abs(y - touchStartY) > TOUCH_SLOP_PX) {
+        onManualScroll();
       }
     };
     // The scroll bar: a press on the scrolling element itself, not on its content.
     const onPointerDown = (event: PointerEvent) => {
-      if (event.target === container) {
-        pause();
+      if (event.target === containerRef.current) {
+        onManualScroll();
       }
     };
     const onKeyDown = (event: KeyboardEvent) => {
       if (SCROLL_KEYS.has(event.key) && !isTypingTarget(event.target)) {
-        pause();
+        onManualScroll();
       }
     };
-    container.addEventListener("wheel", pause, { passive: true });
-    container.addEventListener("touchmove", pause, { passive: true });
-    container.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("wheel", onWheel, { passive: true });
+    document.addEventListener("touchstart", onTouchStart, { passive: true });
+    document.addEventListener("touchmove", onTouchMove, { passive: true });
+    document.addEventListener("pointerdown", onPointerDown);
     window.addEventListener("keydown", onKeyDown);
     return () => {
-      container.removeEventListener("wheel", pause);
-      container.removeEventListener("touchmove", pause);
-      container.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("wheel", onWheel);
+      document.removeEventListener("touchstart", onTouchStart);
+      document.removeEventListener("touchmove", onTouchMove);
+      document.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [active, containerRef, player, setPausedAt]);
+  }, [active, containerRef, onManualScroll]);
 
   useEffect(() => {
     if (!active) {
       return;
     }
+    // Held still while a finger or the mouse is down on the sheet, so that a tap on a heading's
+    // button lands where it was aimed.
+    let pressing = false;
+    const onPress = (event: PointerEvent) => {
+      pressing =
+        event.target instanceof Node && containerRef.current?.contains(event.target) === true;
+    };
+    const onRelease = () => {
+      pressing = false;
+    };
+    document.addEventListener("pointerdown", onPress);
+    document.addEventListener("pointerup", onRelease);
+    document.addEventListener("pointercancel", onRelease);
     let frame = 0;
     const follow = () => {
       frame = requestAnimationFrame(follow);
@@ -109,18 +131,8 @@ export function useAutoScroll({
       );
       // Only renders when the section changes.
       setCurrentSection(current === null ? null : headings[current].key);
-      const paused = pausedAtRef.current;
-      if (paused !== null) {
-        const reachedAnchor = [...anchors.values()].some(
-          (anchor) => anchor.positionMs > paused && anchor.positionMs <= now.positionMs
-        );
-        if (reachedAnchor) {
-          setPausedAt(null);
-        }
-        return;
-      }
       const maxScrollTop = container.scrollHeight - container.clientHeight;
-      if (maxScrollTop <= 0) {
+      if (maxScrollTop <= 0 || pressing) {
         return;
       }
       const points = anchorPoints(container, headings);
@@ -129,8 +141,13 @@ export function useAutoScroll({
       container.scrollTop += Math.abs(distance) <= SNAP_PX ? distance : distance * CATCH_UP;
     };
     frame = requestAnimationFrame(follow);
-    return () => cancelAnimationFrame(frame);
-  }, [active, containerRef, player, anchors, setPausedAt]);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("pointerdown", onPress);
+      document.removeEventListener("pointerup", onRelease);
+      document.removeEventListener("pointercancel", onRelease);
+    };
+  }, [active, containerRef, player, anchors]);
 
-  return { paused: active && pausedAt !== null, resume, currentSection };
+  return currentSection;
 }

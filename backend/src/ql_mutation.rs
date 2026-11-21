@@ -143,6 +143,22 @@ impl QLMutation {
         Ok(true)
     }
 
+    /// Removes all of a song's anchors in a Spotify track; returns how many there were.
+    async fn delete_section_anchors(
+        &self,
+        song_id: i32,
+        spotify_track: String,
+    ) -> FieldResult<i32> {
+        let client = self.database_connection.get().await?;
+        let statement = client
+            .prepare("DELETE FROM section_anchors WHERE song_id = $1 AND spotify_track = $2;")
+            .await?;
+        let deleted = client
+            .execute(&statement, &[&song_id, &spotify_track])
+            .await?;
+        Ok(i32::try_from(deleted)?)
+    }
+
     async fn add_bookmark(
         &self,
         song_id: i32,

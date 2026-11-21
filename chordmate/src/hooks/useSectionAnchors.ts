@@ -54,6 +54,12 @@ const DELETE_SECTION_ANCHOR = gql`
   }
 `;
 
+const DELETE_SECTION_ANCHORS = gql`
+  mutation DeleteSectionAnchors($songId: Int!, $spotifyTrack: String!) {
+    deleteSectionAnchors(songId: $songId, spotifyTrack: $spotifyTrack)
+  }
+`;
+
 interface GetSectionAnchorsData {
   sectionAnchors: SectionAnchor[];
 }
@@ -82,6 +88,7 @@ export function useSectionAnchors(songId: number, spotifyTrack: string) {
   const refetchQueries = [{ query: GET_SECTION_ANCHORS, variables }];
   const [setMutation] = useMutation<unknown, SetSectionAnchorVars>(SET_SECTION_ANCHOR);
   const [deleteMutation] = useMutation<unknown, { id: number }>(DELETE_SECTION_ANCHOR);
+  const [deleteAllMutation] = useMutation<unknown, GetSectionAnchorsVars>(DELETE_SECTION_ANCHORS);
 
   const byKey = useMemo(
     () => new Map((data?.sectionAnchors ?? []).map((anchor) => [sectionKeyString(anchor), anchor])),
@@ -99,5 +106,9 @@ export function useSectionAnchors(songId: number, spotifyTrack: string) {
   const remove = (anchor: SectionAnchor) =>
     deleteMutation({ variables: { id: anchor.id }, refetchQueries, awaitRefetchQueries: true });
 
-  return { byKey, set, remove };
+  /** Removes all anchors of the track, also those of headings no longer in the sheet. */
+  const removeAll = () =>
+    deleteAllMutation({ variables, refetchQueries, awaitRefetchQueries: true });
+
+  return { byKey, set, remove, removeAll };
 }

@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { useBlocker, useParams } from "react-router-dom";
 import Editor from "../components/Editor";
 import SpotifyPlayer from "./SpotifyPlayer";
@@ -8,10 +8,11 @@ import { useSectionAnchors, type SectionAnchor } from "../hooks/useSectionAnchor
 import { useAutoScroll } from "../hooks/useAutoScroll";
 import { type DeviceChoiceSetting, useDeviceChoice } from "../hooks/useDeviceChoice";
 import { type SectionKey, sectionKeyString } from "../lib/autoScroll.ts";
-import { formatTime, type Milliseconds } from "../lib/time.ts";
-import type { SheetSections } from "./ChordSheet.tsx";
-import { FloatingMenu, MENU_ITEM_CLASSES } from "./ContextMenu.tsx";
-import type { PlayerHandle } from "./SpotifyPlayer.tsx";
+import { AnchorIcon, type SheetSections } from "./ChordSheet.tsx";
+import { FloatingMenu } from "./ContextMenu.tsx";
+import { SmallButton } from "./BookmarkMarkers.tsx";
+import { formatPrecisePosition, SHIFT_STEP_MS } from "./bookmarkUi.ts";
+import type { PlayerHandle, TrackState } from "./SpotifyPlayer.tsx";
 
 import { useAccessToken } from "../hooks/useAccessToken";
 import SpotifySearch from "./SpotifySearch.tsx";
@@ -242,7 +243,7 @@ function SaveShortcut({ onSave }: { onSave: () => Promise<void> }) {
 
 /** The note names in the order a tap cycles through them, each with how it shows. */
 const SPELLINGS: { spelling: Spelling; label: string; description: string }[] = [
-  { spelling: "common", label: "C♯ E♭", description: "common names: C♯, E♭, F♯, A♭, B♭" },
+  { spelling: "common", label: "♯♭", description: "common names: C♯, E♭, F♯, A♭, B♭" },
   { spelling: "sharps", label: "♯", description: "sharps only: C♯, D♯, F♯, G♯, A♯" },
   { spelling: "flats", label: "♭", description: "flats only: D♭, E♭, G♭, A♭, B♭" },
 ];
@@ -270,7 +271,7 @@ function SpellingButton({
   return (
     <Button
       variant="secondary"
-      className="flex-1"
+      className="flex-1 whitespace-nowrap"
       title={`Note names: ${current.description}. Tap for ${next.description}.`}
       onClick={() => void advance()}
     >
@@ -278,6 +279,9 @@ function SpellingButton({
     </Button>
   );
 }
+
+/** How long the offer to switch auto-scroll on stays. */
+const AUTO_SCROLL_OFFER_MS = 5000;
 
 /** Auto-scroll is switched on and off per device. */
 const AUTO_SCROLL: DeviceChoiceSetting<"on" | "off"> = {
@@ -291,7 +295,7 @@ interface SectionMenuState {
   section: SectionKey;
   x: number;
   y: number;
-  /** Null while the song's track isn't loaded. */
+  /** Null while nothing is loaded. */
   positionMs: number | null;
 }
 
@@ -301,8 +305,9 @@ function reportAnchorFailure(err: unknown) {
 }
 
 /**
- * A section heading's menu: set where the section starts (the playback position when the menu
- * opened), jump there, or remove it.
+ * A section heading's menu: anchor the section to the playback position when the menu opened
+ * (held, so that the moment of the tap counts, not of the choice); once set, fine-tune its start (each
+ * step plays from the new start), jump there, or remove it.
  */
 function SectionMenu({
   menu,
@@ -319,49 +324,76 @@ function SectionMenu({
   onJump: (positionMs: number) => void;
   onClose: () => void;
 }) {
-  const act = (action: () => void) => () => {
-    action();
-    onClose();
-  };
+  // Fine-tuned here first, so that quick presses build on each other without waiting for saving.
+  const [startMs, setStartMs] = useState(anchor?.positionMs ?? null);
   const { positionMs } = menu;
+  const shift = (from: number, deltaMs: number) => {
+    const shifted = Math.max(from + deltaMs, 0);
+    setStartMs(shifted);
+    onSet(shifted);
+    onJump(shifted);
+  };
   return (
-    <FloatingMenu x={menu.x} y={menu.y} role="menu" label={menu.section.heading} onClose={onClose}>
+    <FloatingMenu
+      x={menu.x}
+      y={menu.y}
+      role="dialog"
+      label={menu.section.heading}
+      onClose={onClose}
+    >
       <p className="px-4 pt-1 pb-2 text-xs font-semibold text-gray-600 dark:text-gray-400">
         {menu.section.heading}
       </p>
       {positionMs === null ? (
         <p className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">
-          Play the song to set where this section starts.
+          Play the song to anchor this section.
         </p>
       ) : (
-        <button
-          type="button"
-          role="menuitem"
-          onClick={act(() => onSet(positionMs))}
-          className={MENU_ITEM_CLASSES}
-        >
-          Starts here: {formatTime(positionMs as Milliseconds)}
-        </button>
+        <div className="px-2 py-1">
+          <button
+            type="button"
+            onClick={() => {
+              onSet(positionMs);
+              onClose();
+            }}
+            className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white text-sm font-medium tabular-nums focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+          >
+            <AnchorIcon />
+            Anchor to {formatPrecisePosition(positionMs)}
+          </button>
+        </div>
       )}
-      {anchor && (
-        <>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={act(() => onJump(anchor.positionMs))}
-            className={MENU_ITEM_CLASSES}
+      {anchor && startMs !== null && (
+        <div className="px-2 py-1 flex items-center gap-1 select-none">
+          <SmallButton
+            title={`${SHIFT_STEP_MS / 1000} s earlier`}
+            onClick={() => shift(startMs, -SHIFT_STEP_MS)}
           >
-            Jump to {formatTime(anchor.positionMs as Milliseconds)}
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={act(() => onRemove(anchor))}
-            className={MENU_ITEM_CLASSES}
+            −
+          </SmallButton>
+          <span className="min-w-[6ch] text-center text-sm tabular-nums">
+            {formatPrecisePosition(startMs)}
+          </span>
+          <SmallButton
+            title={`${SHIFT_STEP_MS / 1000} s later`}
+            onClick={() => shift(startMs, SHIFT_STEP_MS)}
           >
-            Remove
-          </button>
-        </>
+            +
+          </SmallButton>
+          <span className="flex-1" />
+          <SmallButton title="Jump here" onClick={() => onJump(startMs)}>
+            ▶
+          </SmallButton>
+          <SmallButton
+            title="Remove"
+            onClick={() => {
+              onRemove(anchor);
+              onClose();
+            }}
+          >
+            🗑
+          </SmallButton>
+        </div>
       )}
     </FloatingMenu>
   );
@@ -456,17 +488,51 @@ export default function SongDetail() {
 
   // Auto-scroll: the sheet follows the music along its anchored sections (see useAutoScroll).
   const sectionAnchors = useSectionAnchors(id, song?.spotifyTrack ?? "");
+  // One state per device: scrolling by hand switches it off; the offer below, or a heading's ▶,
+  // switches it on.
   const autoScrollSetting = useDeviceChoice(AUTO_SCROLL);
   const autoScrollOn = autoScrollSetting.value === "on";
+  const setAutoScroll = autoScrollSetting.setValue;
+  // The offer to switch it on, shown for a while from when it was made (null: not shown).
+  const [autoScrollOfferedAt, setAutoScrollOfferedAt] = useState<number | null>(null);
+  const offerAutoScroll = useCallback(() => setAutoScrollOfferedAt(performance.now()), []);
+  useEffect(() => {
+    if (autoScrollOfferedAt === null) {
+      return;
+    }
+    const timer = window.setTimeout(() => setAutoScrollOfferedAt(null), AUTO_SCROLL_OFFER_MS);
+    return () => window.clearTimeout(timer);
+  }, [autoScrollOfferedAt]);
+  const switchOnAutoScroll = () => {
+    setAutoScroll("on");
+    setAutoScrollOfferedAt(null);
+  };
+  const switchOffAutoScroll = useCallback(() => {
+    setAutoScroll("off");
+    offerAutoScroll();
+  }, [setAutoScroll, offerAutoScroll]);
+  // The offer only shows while the song plays, and is made again when it starts playing.
+  const [trackState, setTrackState] = useState<TrackState>("unloaded");
+  const playing = trackState === "playing";
+  const onTrackStateChange = useCallback(
+    (newState: TrackState) => {
+      setTrackState(newState);
+      if (newState === "playing" && !autoScrollOn) {
+        offerAutoScroll();
+      }
+    },
+    [autoScrollOn, offerAutoScroll]
+  );
   const playerHandle = useRef<PlayerHandle>(null);
   const sheetScrollRef = useRef<HTMLDivElement>(null);
   const [sectionMenu, setSectionMenu] = useState<SectionMenuState | null>(null);
   // Not while a heading's menu is open: it closes when the sheet scrolls.
-  const autoScroll = useAutoScroll({
+  const currentSection = useAutoScroll({
     active: autoScrollOn && !editMode && sectionMenu === null,
     containerRef: sheetScrollRef,
     player: playerHandle,
     anchors: sectionAnchors.byKey,
+    onManualScroll: switchOffAutoScroll,
   });
 
   const metronomeRef = useRef<MetronomeHandle>(null);
@@ -534,26 +600,38 @@ export default function SongDetail() {
 
   const albumArtUrl = song.albumArtUrl;
 
-  /** Moves playback to a position and plays; the sheet follows again. */
+  /** Moves playback to a section's start and plays; the sheet follows from there. */
   const jumpTo = (positionMs: number) => {
-    autoScroll.resume();
+    switchOnAutoScroll();
     playerHandle.current?.jumpTo(positionMs);
+  };
+  const readPositionMs = () => playerHandle.current?.now()?.positionMs ?? null;
+  /** Sets a section to start at the current playback position. */
+  const startNow = (section: SectionKey) => {
+    const positionMs = readPositionMs();
+    if (positionMs === null) {
+      window.alert("Play the song to set where this section starts.");
+      return;
+    }
+    sectionAnchors.set(section, positionMs).catch(reportAnchorFailure);
   };
   const sheetSections: SheetSections = {
     anchors: sectionAnchors.byKey,
-    onOpenMenu: (section, x, y) =>
-      setSectionMenu({
-        section,
-        x,
-        y,
-        positionMs: playerHandle.current?.now()?.positionMs ?? null,
-      }),
+    onOpenMenu: (section, x, y) => setSectionMenu({ section, x, y, positionMs: readPositionMs() }),
     onJump: jumpTo,
-    current: autoScrollOn && !editMode ? autoScroll.currentSection : null,
+    showControls: (song?.spotifyTrack ?? "") !== "",
+    // Anchoring takes the playback position, so only while the track is loaded (also paused).
+    offerAnchorNow: trackState !== "unloaded",
+    onStartNow: startNow,
+    readPositionMs,
+    current: autoScrollOn && !editMode ? currentSection : null,
   };
-  const toggleAutoScroll = () => {
-    autoScrollSetting.setValue(autoScrollOn ? "off" : "on");
-    autoScroll.resume();
+  /** Removes all section starts of the track, e.g. to sync the song anew. */
+  const clearSectionStarts = () => {
+    const count = sectionAnchors.byKey.size;
+    if (window.confirm(`Clear all ${count} anchors of this song?`)) {
+      sectionAnchors.removeAll().catch(reportAnchorFailure);
+    }
   };
 
   // Everything but playing and the sheet itself lives in one menu, so that the title bar keeps
@@ -610,21 +688,18 @@ export default function SongDetail() {
                 </Button>
               )}
               <SpellingButton spelling={song.spelling} onChange={saveSpelling} />
-              <Button
-                variant={autoScrollOn ? "primary" : "secondary"}
-                className="flex-1"
-                title={
-                  autoScrollOn
-                    ? "Auto-scroll is on: the sheet follows the music"
-                    : "Auto-scroll is off"
-                }
-                aria-label="Auto-scroll"
-                aria-pressed={autoScrollOn}
-                onClick={toggleAutoScroll}
-              >
-                <AutoScrollIcon />
-              </Button>
             </div>
+            {/* Rarely needed, and not undoable: only while editing, and modest. */}
+            {editMode && sectionAnchors.byKey.size > 0 && (
+              <button
+                type="button"
+                onClick={clearSectionStarts}
+                title="Remove where every section of this song starts, e.g. to sync it anew"
+                className="self-start px-1 rounded text-sm text-red-600 dark:text-red-400 hover:underline focus-visible:outline-2 focus-visible:outline-blue-500"
+              >
+                Clear all anchors
+              </button>
+            )}
           </MenuSection>
           <MenuSection>
             <MenuRow
@@ -760,6 +835,7 @@ export default function SongDetail() {
           unavailableDeviceName={playbackDevice.targetMissing ? playbackDevice.targetName : null}
           playerError={playerError}
           handleRef={playerHandle}
+          onTrackStateChange={onTrackStateChange}
         />
       </div>
       <div className="relative flex-1 min-h-0 p-1 md:p-3">
@@ -776,13 +852,15 @@ export default function SongDetail() {
           // The Spotify search has the keyboard while it is open (e.g. right after an import).
           focusAtStart={editMode && !searchOpen}
         />
-        {autoScroll.paused && (
+        {autoScrollOfferedAt !== null && playing && !autoScrollOn && !editMode && (
           <button
             type="button"
-            onClick={autoScroll.resume}
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full shadow-lg bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+            onClick={switchOnAutoScroll}
+            title="Let the sheet follow the music"
+            className="absolute bottom-4 left-1/2 -translate-x-1/2 inline-flex items-center gap-2 px-4 py-2 rounded-full shadow-lg bg-blue-500 hover:bg-blue-600 text-white text-sm font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
           >
-            Resume auto-scroll
+            <AutoScrollIcon />
+            Auto-scroll
           </button>
         )}
       </div>

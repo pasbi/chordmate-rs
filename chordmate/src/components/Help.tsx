@@ -59,15 +59,23 @@ export default function Help() {
       <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">Auto-scroll</h2>
         <p>
-          Switch it on in the song's <strong>☰</strong> menu, and the sheet follows the music. To
-          make it follow the song's sections, long-press or right-click a section heading as that
-          section starts playing and choose <strong>Starts here</strong>. The sheet then glides from
-          heading to heading, and a tap on such a heading jumps there. Without any, it scrolls in
-          proportion to the song's progress.
+          While a song plays, the sheet can follow the music: when playback starts, an{" "}
+          <strong>Auto-scroll</strong> button appears below the sheet for a few seconds; a{" "}
+          <strong>▶</strong> at a heading switches it on as well. To make it follow the song's
+          sections, tap <strong>Anchor to</strong> (with the current time) beside a section's
+          heading as that section starts playing, or with the song paused right there. The sheet
+          then glides from heading to heading. Without any anchors, it scrolls in proportion to the
+          song's progress.
         </p>
         <p>
-          Scrolling by hand pauses it; it resumes with <strong>Resume auto-scroll</strong> or at the
-          next section you set.
+          An anchored heading shows its time with an anchor: tap it to fine-tune the time (each step
+          plays from it), anchor it anew, or remove it. <strong>▶</strong> left of the heading plays
+          from there. To sync a song from scratch, use <strong>Clear all anchors</strong> in the{" "}
+          <strong>☰</strong> menu while editing.
+        </p>
+        <p>
+          Scrolling by hand switches it off, and the <strong>Auto-scroll</strong> button appears
+          again for a few seconds. It stays as last set for the next songs on this device.
         </p>
         <p>
           The section playing is highlighted, so you can see how well the sheet keeps up. Sections

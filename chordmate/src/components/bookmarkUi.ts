@@ -32,6 +32,9 @@ export function formatPrecisePosition(positionMs: number) {
   return `${formatPosition(positionMs)}.${tenths}`;
 }
 
+/** How far one press of − or + shifts a bookmark or a section's start. */
+export const SHIFT_STEP_MS = 250;
+
 /** The shortest passage a loop end may close, after the bookmark's position. */
 export const MIN_LOOP_MS = 500;
 

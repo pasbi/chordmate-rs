@@ -10,12 +10,10 @@ import {
   JUMP_TARGET_TEXT_CLASSES,
   loopEndListenPosition,
   MIN_LOOP_MS,
+  SHIFT_STEP_MS,
 } from "./bookmarkUi";
 import { FloatingMenu } from "./ContextMenu";
 import { INPUT_CLASSES } from "./inputClasses";
-
-/** How far one press of − or + shifts a bookmark. */
-const SHIFT_STEP_MS = 250;
 
 /** Points down at the position, for “Last play start” while it is ↺'s target. */
 function PlayStartMarker() {
@@ -104,7 +102,7 @@ function ActiveName({ name, onRightHalf }: { name: string; onRightHalf: boolean 
   );
 }
 
-function SmallButton({
+export function SmallButton({
   title,
   onClick,
   children,

@@ -80,6 +80,9 @@ const DISPLAY_TICK_MS = 250;
 /** A polled playback state and when it was taken, to move the position on between polls. */
 type Sample = { state: PlaybackState | null; takenAt: number };
 
+/** Whether this song's track is in the player: not at all, paused, or playing. */
+export type TrackState = "unloaded" | "paused" | "playing";
+
 /** What the song page reads from the player: its current position, and a jump. */
 export interface PlayerHandle {
   /** The position as of now; null while this song's track isn't loaded. */
@@ -118,6 +121,7 @@ export default function SpotifyPlayer({
   unavailableDeviceName,
   playerError,
   handleRef,
+  onTrackStateChange,
 }: {
   trackId: string;
   /** The track Spotify plays instead of `trackId`'s if that one was withdrawn, else null. */
@@ -138,6 +142,8 @@ export default function SpotifyPlayer({
   playerError: string | null;
   /** Filled with the player's current position and a jump, for the sheet (auto-scroll). */
   handleRef: RefObject<PlayerHandle | null>;
+  /** Called when this song's track is loaded, starts or stops playing, or is gone. */
+  onTrackStateChange: (trackState: TrackState) => void;
 }) {
   const message = statusMessage(
     accessTokenStatus,
@@ -415,6 +421,12 @@ export default function SpotifyPlayer({
     },
     [playback, trackUri, replacementTrackUri]
   );
+
+  // Tells the page what its track is doing.
+  const trackState: TrackState = state === null ? "unloaded" : state.paused ? "paused" : "playing";
+  useEffect(() => {
+    onTrackStateChange(trackState);
+  }, [trackState, onTrackStateChange]);
 
   // The position as of now, between polls estimated from the last one, for auto-scrolling the
   // sheet in step with the music; null while this song's track isn't loaded.

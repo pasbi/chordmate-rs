@@ -5,6 +5,7 @@
  * simply follows the song's progress.
  */
 import type { SheetLine } from "./chordPro.ts";
+import { formatTime, type Milliseconds } from "./time.ts";
 
 /** A section of a sheet: its heading's text and which occurrence of that text it is (from 1). */
 export interface SectionKey {
@@ -30,6 +31,11 @@ export function headingKeys(lines: SheetLine[]) {
     keys.set(index, { heading: line.text, occurrence });
   });
   return keys;
+}
+
+/** The label of a button that anchors a section to the playback position (null: not loaded). */
+export function anchorToLabel(positionMs: number | null) {
+  return `Anchor to ${positionMs === null ? "–:––" : formatTime(positionMs as Milliseconds)}`;
 }
 
 /** A point of the scroll path: at `positionMs`, the sheet is scrolled to `scrollTop`. */

@@ -1,8 +1,14 @@
-import { useMemo } from "react";
+import { type MouseEvent, type ReactNode, useMemo } from "react";
 import { type Chord, parseChordPro, type Segment, type SheetLine } from "../lib/chordPro.ts";
 import { useContextMenuTrigger } from "../hooks/useContextMenuTrigger";
 import type { SectionAnchor } from "../hooks/useSectionAnchors";
-import { headingKeys, type SectionKey, sectionKeyString } from "../lib/autoScroll.ts";
+import {
+  anchorToLabel,
+  headingKeys,
+  type SectionKey,
+  sectionKeyString,
+} from "../lib/autoScroll.ts";
+import { usePlaybackSecond } from "../hooks/usePlaybackSecond.ts";
 import { chordGlyphs } from "../lib/chordGlyphs.ts";
 import { formatTime, type Milliseconds } from "../lib/time.ts";
 import { type Spelling, transposeChord } from "../lib/transpose.ts";
@@ -82,8 +88,122 @@ export interface SheetSections {
   onOpenMenu: (section: SectionKey, x: number, y: number) => void;
   /** Moves playback to a position and plays. */
   onJump: (positionMs: number) => void;
+  /** Whether headings show their buttons: jump to an anchor, fine-tune it. */
+  showControls: boolean;
+  /** Whether unanchored headings offer to anchor them to the playback position. */
+  offerAnchorNow: boolean;
+  /** Lets a section start at the current playback position. */
+  onStartNow: (section: SectionKey) => void;
+  /** The current playback position, null while nothing is loaded. */
+  readPositionMs: () => number | null;
   /** The section playing, highlighted to show how well the sheet follows; null for none. */
   current: string | null;
+}
+
+/** A small button beside a heading. */
+function HeadingButton({
+  title,
+  onClick,
+  children,
+}: {
+  title: string;
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className="px-2 rounded-full border border-gray-300 dark:border-gray-600 text-xs font-sans tabular-nums text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 select-none focus-visible:outline-2 focus-visible:outline-blue-500"
+    >
+      {children}
+    </button>
+  );
+}
+
+/** An anchor: the section's start is tied to the song. */
+export function AnchorIcon() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      className="w-3 h-3"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="8" cy="3" r="1.75" />
+      <path d="M8 4.75V14.5M5 7.5h6M2.5 10a5.5 5.5 0 0 0 11 0" />
+    </svg>
+  );
+}
+
+/**
+ * A heading's buttons: until its section has a start, anchor it to now (a tap as the section
+ * begins); then its start, which opens the menu to fine-tune, anchor anew or remove it.
+ */
+function HeadingControls({
+  section,
+  anchor,
+  sections,
+}: {
+  section: SectionKey;
+  anchor: SectionAnchor | null;
+  sections: SheetSections;
+}) {
+  return anchor ? (
+    <HeadingButton
+      title="Fine-tune, anchor anew or remove where this section starts"
+      onClick={(event) => {
+        const bounds = event.currentTarget.getBoundingClientRect();
+        sections.onOpenMenu(section, bounds.left, bounds.bottom);
+      }}
+    >
+      <span className="inline-flex items-center gap-1">
+        <AnchorIcon />
+        {formatTime(anchor.positionMs as Milliseconds)}
+      </span>
+    </HeadingButton>
+  ) : (
+    sections.offerAnchorNow && <AnchorToButton section={section} sections={sections} />
+  );
+}
+
+/** Anchors a section to the playback position, which it shows. */
+function AnchorToButton({ section, sections }: { section: SectionKey; sections: SheetSections }) {
+  const positionMs = usePlaybackSecond(sections.readPositionMs);
+  return (
+    // Filled, unlike the other heading buttons: it is the one to hit on the beat while syncing.
+    <button
+      type="button"
+      title="Anchor this section to the current playback position"
+      onClick={() => sections.onStartNow(section)}
+      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white text-xs font-sans font-medium tabular-nums shadow-sm select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+    >
+      <AnchorIcon />
+      {anchorToLabel(positionMs)}
+    </button>
+  );
+}
+
+/** Plays from a section's start; hangs left of its heading, as tall as the heading's row. */
+function JumpButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Jump here"
+      aria-label="Jump here"
+      className="absolute right-full inset-y-0 w-9 flex items-center justify-center rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 focus-visible:outline-2 focus-visible:outline-blue-500"
+    >
+      <svg viewBox="0 0 10 12" className="w-4 h-5" fill="currentColor" aria-hidden="true">
+        <path d="M0 0l10 6-10 6z" />
+      </svg>
+    </button>
+  );
 }
 
 /**
@@ -111,7 +231,10 @@ function Heading({
     return <div className="section-header-token">{text}</div>;
   }
   return (
-    <div data-section-key={key} className="flex items-baseline gap-2">
+    <div data-section-key={key} className="relative flex flex-wrap items-center gap-x-2">
+      {sections.showControls && anchor && (
+        <JumpButton onClick={() => sections.onJump(anchor.positionMs)} />
+      )}
       <button
         type="button"
         title={
@@ -132,10 +255,14 @@ function Heading({
       >
         {text}
       </button>
-      {anchor && (
-        <span className="text-xs tabular-nums text-gray-500 dark:text-gray-400 select-none">
-          {formatTime(anchor.positionMs as Milliseconds)}
-        </span>
+      {sections.showControls ? (
+        <HeadingControls section={section} anchor={anchor} sections={sections} />
+      ) : (
+        anchor && (
+          <span className="text-xs tabular-nums text-gray-500 dark:text-gray-400 select-none">
+            {formatTime(anchor.positionMs as Milliseconds)}
+          </span>
+        )
       )}
     </div>
   );
@@ -226,7 +353,8 @@ export default function ChordSheet({
   const sectionBlocks = useMemo(() => blocks(lines, keys), [lines, keys]);
   const current = sections?.current ?? null;
   return (
-    <div>
+    // Room on the left for the headings' jump buttons.
+    <div className={sections?.showControls ? "pl-9" : ""}>
       {sectionBlocks.map(({ start, key, lines: blockLines }) => (
         <div
           key={start}
