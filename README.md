@@ -20,7 +20,7 @@ browser, and a BPM with a metronome.
   song), e.g. to match the recording. The sheet's source stays as written.
   Per song, black-key notes are named the common way (C♯, E♭, F♯, A♭, B♭; the
   default), with sharps only, or with flats only, also untransposed, so
-  Ultimate Guitar's A# shows as B♭.
+  Ultimate Guitar's A# shows as B♭. Chords show ♯ and ♭ signs.
 - Spotify search to link a song to a track; in-browser playback through the
   Spotify Web Playback SDK (requires Spotify Premium).
 - Playback on another Spotify device instead: a tablet can show the sheet and

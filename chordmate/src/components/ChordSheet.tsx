@@ -1,10 +1,13 @@
 import { useMemo } from "react";
 import { type Chord, parseChordPro, type Segment, type SheetLine } from "../lib/chordPro.ts";
+import { chordGlyphs } from "../lib/chordGlyphs.ts";
 import { type Spelling, transposeChord } from "../lib/transpose.ts";
 
 function ChordLabel({ chord }: { chord: Chord }) {
-  return (
-    <span className={chord.isAnnotation ? "chord-annotation" : "chord-token"}>{chord.text}</span>
+  return chord.isAnnotation ? (
+    <span className="chord-annotation">{chord.text}</span>
+  ) : (
+    <span className="chord-token">{chordGlyphs(chord.text)}</span>
   );
 }
 
