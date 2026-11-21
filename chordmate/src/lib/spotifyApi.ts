@@ -5,7 +5,10 @@ const API_URL = "https://api.spotify.com/v1";
 export type SpotifyDevice = {
   id: string;
   name: string;
+  /** Spotify's device type: "Computer", "Smartphone", "Tablet", "Speaker", … */
   type: string;
+  /** Whether it is the device currently playing or last played on. */
+  isActive: boolean;
 };
 
 export type PlaybackState = {
@@ -41,7 +44,7 @@ export function playsTrack(
 }
 
 type DevicesResponse = {
-  devices: { id: string | null; name: string; type: string }[];
+  devices: { id: string | null; name: string; type: string; is_active: boolean }[];
 };
 
 type PlayerResponse = {
@@ -63,6 +66,41 @@ type TrackResponse = {
   album: { uri: string } | null;
 };
 
+/** A request Spotify refused, with its status and Spotify's own explanation. */
+export class SpotifyApiError extends Error {
+  readonly status: number;
+  readonly spotifyMessage: string;
+
+  constructor(method: string, path: string, status: number, body: string) {
+    super(`Spotify ${method} ${path} failed: ${status} ${body}`);
+    this.status = status;
+    this.spotifyMessage = spotifyErrorMessage(body) ?? `error ${status}`;
+  }
+}
+
+/** The message in Spotify's error body ({"error": {"message": …}}), if it has one. */
+function spotifyErrorMessage(body: string) {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    const message = (parsed as { error?: { message?: unknown } }).error?.message;
+    return typeof message === "string" && message !== "" ? message : null;
+  } catch {
+    return null;
+  }
+}
+
+/** A short explanation of a failed Spotify call, for the player's status line. */
+export function describeSpotifyFailure(err: unknown) {
+  if (err instanceof SpotifyApiError) {
+    return err.spotifyMessage;
+  }
+  // fetch rejects with a TypeError when the network fails.
+  if (err instanceof TypeError) {
+    return "Spotify can't be reached";
+  }
+  return err instanceof Error ? err.message : String(err);
+}
+
 async function request(
   accessToken: string,
   method: "GET" | "PUT",
@@ -80,9 +118,7 @@ async function request(
     keepalive: method === "PUT",
   });
   if (!response.ok) {
-    throw new Error(
-      `Spotify ${method} ${path} failed: ${response.status} ${await response.text()}`
-    );
+    throw new SpotifyApiError(method, path, response.status, await response.text());
   }
   return response;
 }
@@ -95,7 +131,9 @@ export async function fetchDevices(accessToken: string): Promise<SpotifyDevice[]
   const response = await request(accessToken, "GET", "/me/player/devices", null);
   const { devices }: DevicesResponse = await response.json();
   // Devices without an id can't be controlled (e.g. restricted ones).
-  return devices.flatMap(({ id, name, type }) => (id === null ? [] : [{ id, name, type }]));
+  return devices.flatMap(({ id, name, type, is_active }) =>
+    id === null ? [] : [{ id, name, type, isActive: is_active }]
+  );
 }
 
 /** The user's current playback anywhere, or null if nothing is active. */

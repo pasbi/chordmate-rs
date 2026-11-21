@@ -118,6 +118,11 @@ and remote control; the choice is remembered per device. Switching devices
 moves the current playback along. The desktop app has to be running and logged
 in with the same Spotify account.
 
+*This device* plays in the browser itself. That needs DRM, which browsers only
+offer on HTTPS pages (or `localhost`); over plain http, e.g. on a tablet, *This
+device* is the Spotify app on that device instead, found by its device type. It
+has to be open to be listed; until then, the player asks to open it.
+
 Database settings are passed as command-line flags or environment variables:
 
 | Flag            | Env var          |

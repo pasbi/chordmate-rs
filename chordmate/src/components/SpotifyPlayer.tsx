@@ -1,6 +1,6 @@
 import type { AccessTokenStatus } from "../hooks/useAccessToken";
 import type { Playback } from "../hooks/usePlayback";
-import { type PlaybackState, playsTrack } from "../lib/spotifyApi";
+import { describeSpotifyFailure, type PlaybackState, playsTrack } from "../lib/spotifyApi";
 import type { Bookmarks } from "../hooks/useBookmarks";
 import {
   type CSSProperties,
@@ -22,11 +22,20 @@ function trackIdToUri(trackId: string) {
   return `spotify:track:${trackId}`;
 }
 
+/** How long a failed command's explanation stays in the status line. */
+const FAILURE_SHOWN_MS = 8000;
+
 function statusMessage(
   accessTokenStatus: AccessTokenStatus,
-  unavailableDeviceName: string | null,
+  deviceProblem: string | null,
   trackPlayable: boolean,
-  playerError: string | null
+  playerError: string | null,
+  /** Why the last command (play, seek, …) failed, for a while after it did. */
+  failure: string | null,
+  /** Why the playback state can't be read, while it can't. */
+  pollFailure: string | null,
+  /** What playback waits for before it can start, while it waits. */
+  waitingFor: string | null
 ): string | null {
   switch (accessTokenStatus) {
     case "waitingForLogin":
@@ -36,13 +45,16 @@ function statusMessage(
     case "loading":
       return null;
     case "ready":
-      if (unavailableDeviceName !== null) {
-        return `“${unavailableDeviceName}” is not available. Start Spotify there, or choose another device under 🔊.`;
+      if (deviceProblem !== null) {
+        return deviceProblem;
       }
       if (!trackPlayable) {
         return "This track isn't available on Spotify in your country. Link another version: Edit, then tap the title.";
       }
-      return playerError === null ? null : `Spotify player error: ${playerError}`;
+      if (playerError !== null) {
+        return playerError;
+      }
+      return failure ?? pollFailure ?? waitingFor;
   }
 }
 
@@ -118,10 +130,11 @@ export default function SpotifyPlayer({
   volume,
   playback,
   accessTokenStatus,
-  unavailableDeviceName,
+  deviceProblem,
   playerError,
   handleRef,
   onTrackStateChange,
+  targetDeviceName,
 }: {
   trackId: string;
   /** The track Spotify plays instead of `trackId`'s if that one was withdrawn, else null. */
@@ -136,20 +149,57 @@ export default function SpotifyPlayer({
   /** Null while no device is ready to play. */
   playback: Playback | null;
   accessTokenStatus: AccessTokenStatus;
-  /** Name of the chosen output device while it is unavailable. */
-  unavailableDeviceName: string | null;
+  /** Why the chosen output device can't play (e.g. it isn't available), if it can't. */
+  deviceProblem: string | null;
   /** Why this browser's player can't start, if it can't. */
   playerError: string | null;
   /** Filled with the player's current position and a jump, for the sheet (auto-scroll). */
   handleRef: RefObject<PlayerHandle | null>;
   /** Called when this song's track is loaded, starts or stops playing, or is gone. */
   onTrackStateChange: (trackState: TrackState) => void;
+  /** The device chosen to play on, null for this browser. */
+  targetDeviceName: string | null;
 }) {
+  // Failures are shown, not only logged: on a tablet, nobody sees the console.
+  const [failure, setFailure] = useState<string | null>(null);
+  const failureTimeout = useRef<number | null>(null);
+  const reportFailure = useCallback(
+    (action: string) => (err: unknown) => {
+      console.error(err);
+      setFailure(`${action} failed: ${describeSpotifyFailure(err)}.`);
+      if (failureTimeout.current !== null) {
+        clearTimeout(failureTimeout.current);
+      }
+      failureTimeout.current = window.setTimeout(() => {
+        failureTimeout.current = null;
+        setFailure(null);
+      }, FAILURE_SHOWN_MS);
+    },
+    []
+  );
+  useEffect(
+    () => () => {
+      if (failureTimeout.current !== null) {
+        clearTimeout(failureTimeout.current);
+      }
+    },
+    []
+  );
+  const [pollFailure, setPollFailure] = useState<string | null>(null);
+  const waitingFor =
+    playback !== null
+      ? null
+      : targetDeviceName === null
+        ? "Starting Spotify's player in this browser…"
+        : `Connecting to “${targetDeviceName}”…`;
   const message = statusMessage(
     accessTokenStatus,
-    unavailableDeviceName,
+    deviceProblem,
     trackPlayable,
-    playerError
+    playerError,
+    failure,
+    playback === null ? null : pollFailure,
+    waitingFor
   );
   const trackUri = trackIdToUri(trackId);
 
@@ -166,7 +216,13 @@ export default function SpotifyPlayer({
     if (!playback) {
       return;
     }
-    const poll = () => refresh().catch(console.error);
+    const poll = () =>
+      refresh()
+        .then(() => setPollFailure(null))
+        .catch((err: unknown) => {
+          console.error(err);
+          setPollFailure(`Can't read what Spotify plays: ${describeSpotifyFailure(err)}.`);
+        });
     poll();
     const interval = setInterval(poll, playback.pollIntervalMs);
     return () => clearInterval(interval);
@@ -242,7 +298,7 @@ export default function SpotifyPlayer({
             takenAt: performance.now(),
           }))
         )
-        .catch(console.error)
+        .catch(reportFailure("Seeking"))
         .finally(() => setScrubPosition(null));
     }, SLIDER_SEEK_DELAY_MS);
   };
@@ -260,10 +316,10 @@ export default function SpotifyPlayer({
       return;
     }
     const timeout = setTimeout(() => {
-      playback.setVolume(sliderToVolume(volume)).catch(console.error);
+      playback.setVolume(sliderToVolume(volume)).catch(reportFailure("Setting the volume"));
     }, SLIDER_SEEK_DELAY_MS);
     return () => clearTimeout(timeout);
-  }, [playback, volume]);
+  }, [playback, volume, reportFailure]);
 
   // Start playback once, when a device is ready, unless it already plays this track (e.g. the
   // PC plays it and the song was just opened on a tablet).
@@ -281,8 +337,8 @@ export default function SpotifyPlayer({
           : playback.play(trackUri, 0)
       )
       .then(refresh)
-      .catch(console.error);
-  }, [playback, trackUri, replacementTrackUri, refresh]);
+      .catch(reportFailure("Playing"));
+  }, [playback, trackUri, replacementTrackUri, refresh, reportFailure]);
 
   // Choosing another output device moves the music there, playing if it was playing, so that the
   // controls keep acting on what is heard. Only the first device starts by autoplay instead.
@@ -299,9 +355,12 @@ export default function SpotifyPlayer({
       previousDeviceId.current !== null && previousDeviceId.current !== playback.deviceId;
     previousDeviceId.current = playback.deviceId;
     if (switched) {
-      playback.transferHere(wasPlaying.current).then(refresh).catch(console.error);
+      playback
+        .transferHere(wasPlaying.current)
+        .then(refresh)
+        .catch(reportFailure("Moving playback"));
     }
-  }, [playback, refresh]);
+  }, [playback, refresh, reportFailure]);
 
   // Linking another track pauses the old one instead of playing the new one; Play then starts
   // the new track from the beginning. Only if something plays: with nothing loaded (e.g. a new
@@ -339,11 +398,11 @@ export default function SpotifyPlayer({
         await playback.pause();
       }
     } catch (err) {
-      console.error(err);
+      reportFailure(paused ? "Playing" : "Pausing")(err);
     }
     // Also after a failure, so that the controls show the actual state instead of a stale one.
     await refresh().catch(console.error);
-  }, [playback, paused, trackUri, position, refresh]);
+  }, [playback, paused, trackUri, position, refresh, reportFailure]);
 
   // Seeks run one after another, each relative to the device's actual position at that moment,
   // so that quickly repeated presses add up exactly.
@@ -363,9 +422,9 @@ export default function SpotifyPlayer({
           await playback.seek(target);
           setSample({ state: { ...current, position: target }, takenAt: performance.now() });
         })
-        .catch(console.error);
+        .catch(reportFailure("Seeking"));
     },
-    [playback]
+    [playback, reportFailure]
   );
   const seekBy = useCallback(
     (delta: Seconds) => seekTo((current) => current.position + delta * 1000),
@@ -394,9 +453,9 @@ export default function SpotifyPlayer({
             await refresh();
           }
         })
-        .catch(console.error);
+        .catch(reportFailure("Jumping"));
     },
-    [playback, trackUri, replacementTrackUri, refresh]
+    [playback, trackUri, replacementTrackUri, refresh, reportFailure]
   );
 
   /** Moves to a position in this song's track, playing or paused as before. */
@@ -417,9 +476,9 @@ export default function SpotifyPlayer({
           await playback.seek(target);
           setSample({ state: { ...current, position: target }, takenAt: performance.now() });
         })
-        .catch(console.error);
+        .catch(reportFailure("Seeking"));
     },
-    [playback, trackUri, replacementTrackUri]
+    [playback, trackUri, replacementTrackUri, reportFailure]
   );
 
   // Tells the page what its track is doing.
@@ -468,8 +527,8 @@ export default function SpotifyPlayer({
     playback
       .pause()
       .then(() => seekInTrack(0))
-      .catch(console.error);
-  }, [playback, seekInTrack]);
+      .catch(reportFailure("Stopping at the song's end"));
+  }, [playback, seekInTrack, reportFailure]);
 
   useEffect(() => {
     // A duration of 0 means not known yet (e.g. right after starting).

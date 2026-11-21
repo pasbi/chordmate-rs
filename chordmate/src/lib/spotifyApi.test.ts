@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { type PlaybackState, playsTrack } from "./spotifyApi";
+import {
+  describeSpotifyFailure,
+  type PlaybackState,
+  playsTrack,
+  SpotifyApiError,
+} from "./spotifyApi";
 
 function stateOf(trackUri: string, linkedFromUri: string | null): PlaybackState {
   return {
@@ -40,5 +45,23 @@ describe("playsTrack", () => {
 
   it("doesn't match when nothing plays", () => {
     expect(playsTrack(null, "spotify:track:a", null)).toBe(false);
+  });
+});
+
+describe("describeSpotifyFailure", () => {
+  it("uses Spotify's own message", () => {
+    const body =
+      '{"error":{"status":404,"message":"Device not found","reason":"NO_ACTIVE_DEVICE"}}';
+    const err = new SpotifyApiError("PUT", "/me/player/play", 404, body);
+    expect(describeSpotifyFailure(err)).toBe("Device not found");
+  });
+
+  it("falls back to the status without a message", () => {
+    const err = new SpotifyApiError("PUT", "/me/player/play", 502, "<html>Bad gateway</html>");
+    expect(describeSpotifyFailure(err)).toBe("error 502");
+  });
+
+  it("reports a failed network as unreachable", () => {
+    expect(describeSpotifyFailure(new TypeError("NetworkError"))).toBe("Spotify can't be reached");
   });
 });

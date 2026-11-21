@@ -19,6 +19,30 @@ const ERROR_EVENTS = [
   "playback_error",
 ] as const;
 
+/** Where to turn when this browser can't play. */
+const CHOOSE_ANOTHER_DEVICE =
+  "Choose another device under “Play on” in the ☰ menu, e.g. the PC's Spotify.";
+
+/**
+ * Why Spotify's player can't work in this page at all, or null if it may. It needs DRM
+ * (Encrypted Media Extensions), which browsers only offer on secure pages: HTTPS or localhost.
+ * Without it, the player doesn't fail but hangs (Firefox for Android over plain http).
+ */
+function unsupportedReason() {
+  if (!window.isSecureContext || typeof navigator.requestMediaKeySystemAccess !== "function") {
+    return `Spotify can't play in this browser on a page without HTTPS. ${CHOOSE_ANOTHER_DEVICE}`;
+  }
+  return null;
+}
+
+const UNSUPPORTED_REASON = unsupportedReason();
+
+/** Whether Spotify's player can work in this browser (see unsupportedReason). */
+export const BROWSER_CAN_PLAY = UNSUPPORTED_REASON === null;
+
+/** A player not ready by then has most likely hung (e.g. on a mobile browser). */
+const READY_TIMEOUT_MS = 20000;
+
 /** A short platform name, so that ChordMate players on different devices can be told apart. */
 function platformName() {
   const userAgent = navigator.userAgent;
@@ -34,7 +58,11 @@ function platformName() {
  * Plays Spotify in this browser through the Web Playback SDK, which registers the browser as a
  * Spotify Connect device. Pass null instead of a token to not create a player at all.
  */
-export function useSpotifyPlayer(accessToken: string | null) {
+export function useSpotifyPlayer(accessToken: string | null): {
+  player: SpotifyPlayer | null;
+  deviceId: string | null;
+  error: string | null;
+} {
   const [player, setPlayer] = useState<SpotifyPlayer | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   // Without this, a player that can't start (no DRM support, no Premium, …) fails silently.
@@ -46,7 +74,7 @@ export function useSpotifyPlayer(accessToken: string | null) {
   useEffect(() => {
     latestToken.current = accessToken;
   }, [accessToken]);
-  const enabled = accessToken !== null;
+  const enabled = accessToken !== null && UNSUPPORTED_REASON === null;
 
   useEffect(() => {
     if (!enabled) {
@@ -55,6 +83,14 @@ export function useSpotifyPlayer(accessToken: string | null) {
     let canceled = false;
     let createdPlayer: SpotifyPlayer | null = null;
     let playbackErrorTimeout: number | null = null;
+
+    let ready = false;
+    // The player reports neither readiness nor an error in some browsers; say so after a while.
+    const readyTimeout = window.setTimeout(() => {
+      if (!ready && !canceled) {
+        setError(`Spotify's player didn't start in this browser. ${CHOOSE_ANOTHER_DEVICE}`);
+      }
+    }, READY_TIMEOUT_MS);
 
     const createPlayer = async () => {
       const newPlayer = new Spotify.Player({
@@ -67,6 +103,7 @@ export function useSpotifyPlayer(accessToken: string | null) {
       });
       createdPlayer = newPlayer;
       newPlayer.addListener("ready", ({ device_id }) => {
+        ready = true;
         if (!canceled) {
           setDeviceId(device_id);
           setError(null);
@@ -83,7 +120,8 @@ export function useSpotifyPlayer(accessToken: string | null) {
           if (canceled) {
             return;
           }
-          setError(message);
+          const shown = `Spotify player error: ${message}`;
+          setError(shown);
           if (playbackErrorTimeout !== null) {
             clearTimeout(playbackErrorTimeout);
             playbackErrorTimeout = null;
@@ -92,7 +130,7 @@ export function useSpotifyPlayer(accessToken: string | null) {
             playbackErrorTimeout = window.setTimeout(() => {
               playbackErrorTimeout = null;
               // Unless a lasting error replaced it meanwhile.
-              setError((current) => (current === message ? null : current));
+              setError((current) => (current === shown ? null : current));
             }, PLAYBACK_ERROR_SHOWN_MS);
           }
         });
@@ -124,6 +162,7 @@ export function useSpotifyPlayer(accessToken: string | null) {
 
     return () => {
       canceled = true;
+      clearTimeout(readyTimeout);
       if (playbackErrorTimeout !== null) {
         clearTimeout(playbackErrorTimeout);
       }
@@ -135,5 +174,8 @@ export function useSpotifyPlayer(accessToken: string | null) {
     };
   }, [enabled]);
 
+  if (accessToken !== null && UNSUPPORTED_REASON !== null) {
+    return { player: null, deviceId: null, error: UNSUPPORTED_REASON };
+  }
   return { player, deviceId, error };
 }

@@ -474,7 +474,7 @@ export default function SongDetail() {
   );
   const { playback, error: playerError } = usePlayback(
     accessToken,
-    playbackDevice.targetName !== null,
+    playbackDevice.remote,
     playbackDevice.targetDeviceId
   );
   const [editMode, setEditMode] = useState(false);
@@ -720,6 +720,7 @@ export default function SongDetail() {
               <PlaybackDevicePicker
                 devices={playbackDevice.devices}
                 targetName={playbackDevice.targetName}
+                ownApp={playbackDevice.ownApp}
                 onSelect={playbackDevice.setTargetName}
               />
             </MenuRow>
@@ -832,10 +833,11 @@ export default function SongDetail() {
           volume={volume}
           playback={playback}
           accessTokenStatus={accessTokenStatus}
-          unavailableDeviceName={playbackDevice.targetMissing ? playbackDevice.targetName : null}
+          deviceProblem={playbackDevice.problem}
           playerError={playerError}
           handleRef={playerHandle}
           onTrackStateChange={onTrackStateChange}
+          targetDeviceName={playbackDevice.targetLabel}
         />
       </div>
       <div className="relative flex-1 min-h-0 p-1 md:p-3">
