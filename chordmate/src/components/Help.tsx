@@ -57,6 +57,25 @@ export default function Help() {
       </section>
 
       <section className="flex flex-col gap-2">
+        <h2 className="text-lg font-semibold">Auto-scroll</h2>
+        <p>
+          Switch it on in the song's <strong>☰</strong> menu, and the sheet follows the music. To
+          make it follow the song's sections, long-press or right-click a section heading as that
+          section starts playing and choose <strong>Starts here</strong>. The sheet then glides from
+          heading to heading, and a tap on such a heading jumps there. Without any, it scrolls in
+          proportion to the song's progress.
+        </p>
+        <p>
+          Scrolling by hand pauses it; it resumes with <strong>Resume auto-scroll</strong> or at the
+          next section you set.
+        </p>
+        <p>
+          The section playing is highlighted, so you can see how well the sheet keeps up. Sections
+          you haven't set are estimated, so their highlight may come early or late.
+        </p>
+      </section>
+
+      <section className="flex flex-col gap-2">
         <h2 className="text-lg font-semibold">Keyboard shortcuts</h2>
         <p>On a song page, outside edit mode:</p>
         <ShortcutTable shortcuts={SHORTCUTS} />

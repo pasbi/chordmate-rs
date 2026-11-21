@@ -2,7 +2,14 @@ import type { AccessTokenStatus } from "../hooks/useAccessToken";
 import type { Playback } from "../hooks/usePlayback";
 import { type PlaybackState, playsTrack } from "../lib/spotifyApi";
 import type { Bookmarks } from "../hooks/useBookmarks";
-import { type CSSProperties, useCallback, useEffect, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { isTypingTarget } from "../lib/isTypingTarget";
 import { formatTime, type Milliseconds, type Seconds } from "../lib/time";
 import type Bookmark from "../types/Bookmark";
@@ -73,6 +80,14 @@ const DISPLAY_TICK_MS = 250;
 /** A polled playback state and when it was taken, to move the position on between polls. */
 type Sample = { state: PlaybackState | null; takenAt: number };
 
+/** What the song page reads from the player: its current position, and a jump. */
+export interface PlayerHandle {
+  /** The position as of now; null while this song's track isn't loaded. */
+  now: () => { positionMs: number; durationMs: number } | null;
+  /** Moves to a position in this song's track and plays. */
+  jumpTo: (positionMs: number) => void;
+}
+
 /** Marks the passage of a loop on the slider's bar (see .position-slider in main.css). */
 function loopBandStyle(
   startMs: number | null,
@@ -102,6 +117,7 @@ export default function SpotifyPlayer({
   accessTokenStatus,
   unavailableDeviceName,
   playerError,
+  handleRef,
 }: {
   trackId: string;
   /** The track Spotify plays instead of `trackId`'s if that one was withdrawn, else null. */
@@ -120,6 +136,8 @@ export default function SpotifyPlayer({
   unavailableDeviceName: string | null;
   /** Why this browser's player can't start, if it can't. */
   playerError: string | null;
+  /** Filled with the player's current position and a jump, for the sheet (auto-scroll). */
+  handleRef: RefObject<PlayerHandle | null>;
 }) {
   const message = statusMessage(
     accessTokenStatus,
@@ -397,6 +415,24 @@ export default function SpotifyPlayer({
     },
     [playback, trackUri, replacementTrackUri]
   );
+
+  // The position as of now, between polls estimated from the last one, for auto-scrolling the
+  // sheet in step with the music; null while this song's track isn't loaded.
+  useEffect(() => {
+    handleRef.current = {
+      now: () => {
+        if (state === null || state.duration <= 0) {
+          return null;
+        }
+        const playedSinceSample = state.paused ? 0 : performance.now() - sample.takenAt;
+        return {
+          positionMs: Math.min(state.position + playedSinceSample, state.duration),
+          durationMs: state.duration,
+        };
+      },
+      jumpTo: jumpAndPlay,
+    };
+  });
 
   /** Makes a bookmark, or the last play start for null, ↺'s target, and moves there. */
   // A loop can be switched off, to play on past its end into the next section. It is identified

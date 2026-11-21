@@ -1,5 +1,6 @@
 use crate::bookmark::Bookmark;
 use crate::database_connection::DatabaseConnection;
+use crate::section_anchor::SectionAnchor;
 use crate::song::Song;
 use juniper::{graphql_object, FieldResult};
 
@@ -97,6 +98,49 @@ impl QLMutation {
             .await?;
         let row = client.query_one(&statement, &[&id, &transpose]).await?;
         Ok(Song::from_row(&row)?)
+    }
+
+    /// Anchors a section at a position, replacing its earlier anchor if it had one.
+    async fn set_section_anchor(
+        &self,
+        song_id: i32,
+        spotify_track: String,
+        heading: String,
+        occurrence: i32,
+        position_ms: i32,
+    ) -> FieldResult<SectionAnchor> {
+        let client = self.database_connection.get().await?;
+        let statement = client
+            .prepare(
+                "INSERT INTO section_anchors \
+                 (song_id, spotify_track, heading, occurrence, position_ms) \
+                 VALUES ($1, $2, $3, $4, $5) \
+                 ON CONFLICT (song_id, spotify_track, heading, occurrence) \
+                 DO UPDATE SET position_ms = EXCLUDED.position_ms RETURNING *;",
+            )
+            .await?;
+        let row = client
+            .query_one(
+                &statement,
+                &[
+                    &song_id,
+                    &spotify_track,
+                    &heading,
+                    &occurrence,
+                    &position_ms,
+                ],
+            )
+            .await?;
+        Ok(SectionAnchor::from_row(&row)?)
+    }
+
+    async fn delete_section_anchor(&self, id: i32) -> FieldResult<bool> {
+        let client = self.database_connection.get().await?;
+        let statement = client
+            .prepare("DELETE FROM section_anchors WHERE id = $1;")
+            .await?;
+        client.execute(&statement, &[&id]).await?;
+        Ok(true)
     }
 
     async fn add_bookmark(

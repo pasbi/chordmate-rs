@@ -1,5 +1,6 @@
 use crate::bookmark::Bookmark;
 use crate::database_connection::DatabaseConnection;
+use crate::section_anchor::SectionAnchor;
 use crate::song::Song;
 use crate::spotify::SpotifyClient;
 use crate::spotify_track::SpotifyTrack;
@@ -52,6 +53,28 @@ impl QLQuery {
         Ok(rows
             .iter()
             .map(Bookmark::from_row)
+            .collect::<Result<Vec<_>, _>>()?)
+    }
+
+    /// The anchored sections of the song's sheet in the given Spotify track.
+    async fn section_anchors(
+        &self,
+        song_id: i32,
+        spotify_track: String,
+    ) -> FieldResult<Vec<SectionAnchor>> {
+        let client = self.database_connection.get().await?;
+        let statement = client
+            .prepare(
+                "SELECT * FROM section_anchors WHERE song_id = $1 AND spotify_track = $2 \
+                 ORDER BY position_ms, id",
+            )
+            .await?;
+        let rows = client
+            .query(&statement, &[&song_id, &spotify_track])
+            .await?;
+        Ok(rows
+            .iter()
+            .map(SectionAnchor::from_row)
             .collect::<Result<Vec<_>, _>>()?)
     }
 

@@ -42,6 +42,13 @@ browser, and a BPM with a metronome.
   Bookmarks belong to the song's current Spotify track: linking another track
   hides them, linking the old one again brings them back. With no bookmark
   active, ↺ returns to where Play was last pressed.
+- Auto-scroll (switched on in the song's ☰ menu, per device): the sheet follows
+  the music. Long-press or right-click a section heading while the song plays
+  and choose "Starts here" to tie it to that moment; the sheet then glides from
+  heading to heading, and a tap on such a heading jumps there. Without any, it
+  scrolls in proportion to the song's progress. Scrolling by hand pauses it
+  until "Resume auto-scroll" or the next anchored section. The section playing
+  is highlighted, to show how well the sheet keeps up.
 - Song list with search, sorting by date added, title, artist or last viewed
   (remembered per device; views count on every device) and grouping by artist.
   Each song shows when it was last viewed: today, yesterday, this week, last

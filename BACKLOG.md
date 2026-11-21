@@ -23,20 +23,14 @@ API that looks up a track by artist, title and duration, all of which are known 
 Spotify. Fuzzy-matching the sheet's lyric lines to the timed LRC lines would give each
 `[Verse]` / `[Chorus]` header the time of its first lyric line.
 
-- Only a suggestion the user confirms or adjusts; manual tap-to-sync stays the fallback.
+Auto-scroll is implemented with such times, set by hand (long-press a heading while the song
+plays); LRCLIB would pre-fill them.
+
+- Only a suggestion the user confirms or adjusts; setting them by hand stays the fallback.
 - Instrumental parts (intro, solo, outro) have no lyrics and need manual input.
 - Repeated choruses must be matched in order; abbreviated sheets (“Chorus 2×”) match poorly.
 - Opt-in, since it sends artist and title to a third party.
-- Section times could become bookmarks, and allow highlighting or
-  auto-scrolling the current section.
-
-## More ideas
-
-Not designed yet; each needs more thought before it is started.
-
-- **Auto-scroll synced to playback.** Simple version: scroll position = playback position /
-  duration. Later: timestamps per section (see the LRCLIB idea above), so the sheet follows the
-  song's structure.
+- Section times could also become bookmarks.
 
 ## Access from outside home (VPN, Raspberry Pi)
 

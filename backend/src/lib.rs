@@ -3,6 +3,7 @@ pub mod bookmark;
 pub mod database_connection;
 pub mod ql_mutation;
 pub mod ql_query;
+pub mod section_anchor;
 pub mod song;
 pub mod spotify;
 pub mod spotify_track;

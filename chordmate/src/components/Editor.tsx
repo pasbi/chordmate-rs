@@ -4,7 +4,7 @@ import StarterKit from "@tiptap/starter-kit";
 import { closeHistory } from "@tiptap/pm/history";
 import { Decoration, DecorationSet, type EditorView } from "prosemirror-view";
 import { Plugin, PluginKey, EditorState } from "prosemirror-state";
-import { type MouseEvent, useEffect, useRef, useState } from "react";
+import { type MouseEvent, type RefObject, useEffect, useState } from "react";
 import { analyzeSourceLine } from "../lib/chordPro.ts";
 import {
   normalizeSongContent,
@@ -12,7 +12,7 @@ import {
   ultimateGuitarToChordPro,
 } from "../lib/ultimateGuitar.ts";
 import { isTypingTarget } from "../lib/isTypingTarget.ts";
-import ChordSheet from "./ChordSheet.tsx";
+import ChordSheet, { type SheetSections } from "./ChordSheet.tsx";
 
 /** Decorations that highlight the ChordPro markup of one source line starting at `offset`. */
 function lineDecorations(line: string, offset: number) {
@@ -128,6 +128,10 @@ interface EditorProps {
   transpose: number;
   /** How the rendered sheet's notes are written (see lib/transpose.ts). */
   spelling: Spelling;
+  /** What the rendered sheet's headings can do (see ChordSheet). */
+  sections: SheetSections | null;
+  /** The element that scrolls the sheet, for auto-scroll. */
+  scrollRef: RefObject<HTMLDivElement | null>;
   /**
    * Whether the source takes the keyboard, with the cursor at its very beginning: noise at the
    * start of a sheet (a repeated title, a link) can then be removed right away with Delete.
@@ -144,6 +148,8 @@ export default function Editor({
   fontSize,
   transpose,
   spelling,
+  sections,
+  scrollRef,
   focusAtStart,
 }: EditorProps) {
   // Songs saved in an earlier format are shown, and edited, as ChordPro.
@@ -177,7 +183,7 @@ export default function Editor({
       editor.commands.focus("start");
     }
   }, [editor, focusAtStart]);
-  const editorScrollRef = useRef<HTMLDivElement>(null);
+  const editorScrollRef = scrollRef;
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (isTypingTarget(e.target)) {
@@ -201,7 +207,7 @@ export default function Editor({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [editorScrollRef]);
 
   /** Converts selected chords-over-lyrics text, e.g. when pasting did not recognize it. */
   const convertSelection = () => {
@@ -233,7 +239,9 @@ export default function Editor({
           editor={editor}
           className={`chord-sheet text-current outline-none font-mono ${editable ? "" : "hidden"}`}
         />
-        {!editable && <ChordSheet source={text} transpose={transpose} spelling={spelling} />}
+        {!editable && (
+          <ChordSheet source={text} transpose={transpose} spelling={spelling} sections={sections} />
+        )}
       </div>
       {editable && (pasteConverted || hasSelection) && (
         <div className="absolute bottom-3 right-3 flex items-center gap-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-1.5 text-sm shadow-lg">
