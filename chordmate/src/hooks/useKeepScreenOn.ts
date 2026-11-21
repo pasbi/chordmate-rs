@@ -75,12 +75,35 @@ function keepOnWithVideo() {
   };
 }
 
+/**
+ * Runs `start` once the page has loaded, and returns what stops it again. A media element added
+ * earlier holds back the page's load until it has decoded a frame, which an Android decoder may
+ * never do for the tiny video (the page then seemed to load forever).
+ */
+function afterPageLoad(start: () => () => void) {
+  let stop: (() => void) | null = null;
+  const run = () => {
+    stop = start();
+  };
+  if (document.readyState === "complete") {
+    run();
+  } else {
+    window.addEventListener("load", run, { once: true });
+  }
+  return () => {
+    window.removeEventListener("load", run);
+    stop?.();
+  };
+}
+
 /** Prevents the screen from turning off while `active`. */
 export function useKeepScreenOn(active: boolean) {
   useEffect(() => {
     if (!active) {
       return;
     }
-    return "wakeLock" in navigator ? keepOnWithWakeLock(navigator.wakeLock) : keepOnWithVideo();
+    return "wakeLock" in navigator
+      ? keepOnWithWakeLock(navigator.wakeLock)
+      : afterPageLoad(keepOnWithVideo);
   }, [active]);
 }
