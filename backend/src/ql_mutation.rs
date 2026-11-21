@@ -69,6 +69,16 @@ impl QLMutation {
         Ok(row.try_get("id")?)
     }
 
+    /// Records that the song's page was opened now.
+    async fn mark_song_viewed(&self, id: i32) -> FieldResult<Song> {
+        let client = self.database_connection.get().await?;
+        let statement = client
+            .prepare("UPDATE songs SET last_viewed_at = now() WHERE id = $1 RETURNING *;")
+            .await?;
+        let row = client.query_one(&statement, &[&id]).await?;
+        Ok(Song::from_row(&row)?)
+    }
+
     /// Sets the semitones the song's chords are shifted by when shown.
     async fn update_song_transpose(&self, id: i32, transpose: i32) -> FieldResult<Song> {
         let client = self.database_connection.get().await?;

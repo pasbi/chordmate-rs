@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useMutation, useQuery } from "@apollo/client/react";
 import type GetSongData from "../types/GetSongData";
 import { gql } from "@apollo/client";
@@ -13,6 +14,16 @@ const GET_SONG = gql`
       albumArtUrl
       bpm
       transpose
+      lastViewedMs
+    }
+  }
+`;
+
+const MARK_SONG_VIEWED = gql`
+  mutation MarkSongViewed($id: Int!) {
+    markSongViewed(id: $id) {
+      id
+      lastViewedMs
     }
   }
 `;
@@ -102,6 +113,12 @@ export default function useSong(id: number) {
   );
 
   const [updateSongMeta] = useMutation<UpdateSongMetaData, UpdateSongMetaVars>(UPDATE_SONG_META);
+
+  // Records the view once per opened song; the returned time updates the cached song list.
+  const [markSongViewed] = useMutation(MARK_SONG_VIEWED);
+  useEffect(() => {
+    markSongViewed({ variables: { id } }).catch(console.error);
+  }, [id, markSongViewed]);
 
   const [updateSongTranspose] = useMutation<UpdateSongTransposeData, UpdateSongTransposeVars>(
     UPDATE_SONG_TRANSPOSE

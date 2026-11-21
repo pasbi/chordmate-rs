@@ -8,6 +8,7 @@ export const GET_SONGS = gql`
       artist
       spotifyTrack
       albumArtUrl
+      lastViewedMs
     }
   }
 `;

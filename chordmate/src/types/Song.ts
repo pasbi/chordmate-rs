@@ -8,6 +8,8 @@ export default interface Song {
   bpm: number | null;
   /** Semitones the chords are shifted by when shown; the content stays as written. */
   transpose: number;
+  /** When the song's page was last opened, in milliseconds since the epoch; null if never. */
+  lastViewedMs: number | null;
 }
 
 /**

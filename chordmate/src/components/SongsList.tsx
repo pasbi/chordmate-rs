@@ -10,20 +10,22 @@ import { ConfirmDeleteDialog } from "./ConfirmDeleteDialog";
 import { ContextMenu } from "./ContextMenu";
 import { useContextMenuTrigger } from "../hooks/useContextMenuTrigger";
 import { type DeviceChoiceSetting, useDeviceChoice } from "../hooks/useDeviceChoice";
+import { lastViewedLabel } from "../lib/lastViewed";
 
-type SortField = "id" | "title" | "artist";
+type SortField = "id" | "title" | "artist" | "lastViewed";
 
 const SORT_FIELD_LABELS: Record<SortField, string> = {
   id: "Added",
   title: "Title",
   artist: "Artist",
+  lastViewed: "Last viewed",
 };
 
 // The sort order is remembered per device; the search lives in the URL (`?q=`), so that it is
 // restored when going back from a song but a fresh visit starts unfiltered.
 const SORT_FIELD: DeviceChoiceSetting<SortField> = {
   storageKey: "chordmate.songListSortField",
-  choices: ["id", "title", "artist"],
+  choices: ["id", "title", "artist", "lastViewed"],
   defaultValue: "id",
 };
 const SORT_DIRECTION: DeviceChoiceSetting<"ascending" | "descending"> = {
@@ -64,6 +66,9 @@ function compareSongs(a: Song, b: Song, field: SortField) {
     case "artist":
       // Within an artist, songs are ordered by title.
       return compareText(a.artist, b.artist) || compareText(a.title, b.title);
+    case "lastViewed":
+      // The most recently viewed first, as a "recent songs" list; never viewed ones last.
+      return (b.lastViewedMs ?? 0) - (a.lastViewedMs ?? 0) || compareText(a.title, b.title);
   }
 }
 
@@ -93,10 +98,13 @@ type SongMenu = { song: Song; x: number; y: number };
 function SongRow({
   song,
   showArtist,
+  now,
   onOpenMenu,
 }: {
   song: Song;
   showArtist: boolean;
+  /** For when the song was last viewed ("yesterday"). */
+  now: Date;
   onOpenMenu: (menu: SongMenu) => void;
 }) {
   const menuTrigger = useContextMenuTrigger((x, y) => onOpenMenu({ song, x, y }));
@@ -119,6 +127,14 @@ function SongRow({
             <span className="text-sm truncate text-gray-600 dark:text-gray-400">{song.artist}</span>
           )}
         </div>
+        {song.lastViewedMs !== null && (
+          <span
+            className="ml-auto shrink-0 text-xs text-gray-500 dark:text-gray-400"
+            title="Last viewed"
+          >
+            {lastViewedLabel(song.lastViewedMs, now)}
+          </span>
+        )}
       </Link>
     </li>
   );
@@ -126,6 +142,8 @@ function SongRow({
 
 export default function SongsList() {
   const { data, loading, error } = useQuery<GetSongsData>(GET_SONGS);
+  // Fixed while the list is open; a day boundary passing meanwhile doesn't matter.
+  const [now] = useState(() => new Date());
 
   const [searchParams, setSearchParams] = useSearchParams();
   const filter = searchParams.get("q") ?? "";
@@ -205,13 +223,25 @@ export default function SongsList() {
                   </h2>
                   <ul className="flex flex-col">
                     {group.songs.map((song) => (
-                      <SongRow key={song.id} song={song} showArtist={false} onOpenMenu={setMenu} />
+                      <SongRow
+                        key={song.id}
+                        song={song}
+                        showArtist={false}
+                        now={now}
+                        onOpenMenu={setMenu}
+                      />
                     ))}
                   </ul>
                 </li>
               ))
             : displayedSongs.map((song) => (
-                <SongRow key={song.id} song={song} showArtist={true} onOpenMenu={setMenu} />
+                <SongRow
+                  key={song.id}
+                  song={song}
+                  showArtist={true}
+                  now={now}
+                  onOpenMenu={setMenu}
+                />
               ))}
         </ul>
         {displayedSongs.length === 0 && <p className="text-center py-4">No songs found</p>}

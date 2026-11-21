@@ -38,7 +38,10 @@ browser, and a BPM with a metronome.
   Bookmarks belong to the song's current Spotify track: linking another track
   hides them, linking the old one again brings them back. With no bookmark
   active, ↺ returns to where Play was last pressed.
-- Song list with search, sorting (remembered per device) and grouping by artist.
+- Song list with search, sorting by date added, title, artist or last viewed
+  (remembered per device; views count on every device) and grouping by artist.
+  Each song shows when it was last viewed: today, yesterday, this week, last
+  week, then 2 weeks ago, 3 months ago, 1 year ago.
 - Light/dark theme following the system setting.
 
 Planned features are described in [BACKLOG.md](BACKLOG.md).
