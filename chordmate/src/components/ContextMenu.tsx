@@ -56,8 +56,17 @@ export function FloatingMenu({
       }
     };
     // Scrolling the page moves the menu's anchor away; scrolling a long menu itself doesn't.
+    // Only from the second frame on: a scroll just before the menu opened (e.g. the sheet's
+    // auto-scroll) is reported in the next frame, and must not close it.
+    let scrollCloses = false;
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() => {
+        scrollCloses = true;
+      });
+    });
     const closeOnOutsideScroll = (event: Event) => {
-      if (!(event.target instanceof Node && menuRef.current?.contains(event.target))) {
+      const inMenu = event.target instanceof Node && menuRef.current?.contains(event.target);
+      if (scrollCloses && !inMenu) {
         onClose();
       }
     };
@@ -73,6 +82,7 @@ export function FloatingMenu({
     window.addEventListener("scroll", closeOnOutsideScroll, true);
     window.addEventListener("resize", closeOnResize);
     return () => {
+      cancelAnimationFrame(frame);
       document.removeEventListener("pointerdown", closeOnOutsidePointer);
       document.removeEventListener("keydown", closeOnEscape);
       window.removeEventListener("scroll", closeOnOutsideScroll, true);
