@@ -428,7 +428,7 @@ export default function SongDetail() {
       )}
     >
       {(close) => (
-        <div className="w-80 max-w-[calc(100vw-2rem)] flex flex-col divide-y divide-gray-200 dark:divide-gray-700">
+        <div className="w-64 max-w-[calc(100vw-2rem)] flex flex-col divide-y divide-gray-200 dark:divide-gray-700">
           {/* Actions first, apart from the settings below. */}
           <MenuSection>
             <div className="flex gap-2">
@@ -473,6 +473,9 @@ export default function SongDetail() {
                 </IconButton>
               }
             >
+              <span className="text-sm font-medium select-none">Play on</span>
+            </MenuRow>
+            <MenuRow icon={null} title="Devices" trailing={null}>
               <PlaybackDevicePicker
                 devices={playbackDevice.devices}
                 targetName={playbackDevice.targetName}

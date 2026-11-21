@@ -31,10 +31,16 @@ export const Metronome = forwardRef<MetronomeHandle>((_, ref) => {
   );
 
   return (
-    <div className="flex flex-1 items-center gap-2">
-      <Button variant="primary" className="flex-1" onClick={running ? stop : start}>
-        {running ? "Stop" : "Start"}
-      </Button>
+    // Two rows, so that it fits a narrow menu: the buttons, then the tempo.
+    <div className="flex flex-1 flex-col gap-2">
+      <div className="flex gap-2">
+        <Button variant="primary" className="flex-1" onClick={running ? stop : start}>
+          {running ? "Stop" : "Start"}
+        </Button>
+        <Button variant={blink ? "success" : "secondary"} className="flex-1" onClick={tap}>
+          Tap
+        </Button>
+      </div>
       <label className="flex items-center gap-1.5">
         <input
           type="number"
@@ -46,9 +52,6 @@ export const Metronome = forwardRef<MetronomeHandle>((_, ref) => {
         />
         <span className="text-sm select-none">BPM</span>
       </label>
-      <Button variant={blink ? "success" : "secondary"} className="flex-1" onClick={tap}>
-        Tap
-      </Button>
     </div>
   );
 });
