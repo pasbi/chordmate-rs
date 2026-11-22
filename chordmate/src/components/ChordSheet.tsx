@@ -100,6 +100,12 @@ export interface SheetSections {
   current: string | null;
 }
 
+/**
+ * Makes a small button react to taps a little around it too, without taking more room: the
+ * sheet may move under the finger while auto-scrolling.
+ */
+const TOUCH_AREA = "relative after:absolute after:-inset-x-2 after:-inset-y-3 after:content-['']";
+
 /** A small button beside a heading. */
 function HeadingButton({
   title,
@@ -115,7 +121,7 @@ function HeadingButton({
       type="button"
       onClick={onClick}
       title={title}
-      className="px-2 rounded-full border border-gray-300 dark:border-gray-600 text-xs font-sans tabular-nums text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 select-none focus-visible:outline-2 focus-visible:outline-blue-500"
+      className={`${TOUCH_AREA} px-2.5 py-0.5 rounded-full border border-gray-300 dark:border-gray-600 text-sm font-sans tabular-nums text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 select-none focus-visible:outline-2 focus-visible:outline-blue-500`}
     >
       {children}
     </button>
@@ -181,7 +187,7 @@ function AnchorToButton({ section, sections }: { section: SectionKey; sections: 
       type="button"
       title="Anchor this section to the current playback position"
       onClick={() => sections.onStartNow(section)}
-      className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white text-xs font-sans font-medium tabular-nums shadow-sm select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+      className={`${TOUCH_AREA} inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white text-sm font-sans font-medium tabular-nums shadow-sm select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500`}
     >
       <AnchorIcon />
       {anchorToLabel(positionMs)}
