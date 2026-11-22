@@ -1,6 +1,7 @@
 import type { AccessTokenStatus } from "../hooks/useAccessToken";
 import type { Playback } from "../hooks/usePlayback";
 import { describeSpotifyFailure, type PlaybackState, playsTrack } from "../lib/spotifyApi";
+import { latestOnly } from "../lib/latestOnly";
 import type { Bookmarks } from "../hooks/useBookmarks";
 import {
   type CSSProperties,
@@ -431,14 +432,20 @@ export default function SpotifyPlayer({
     [seekTo]
   );
 
+  // Jumps go to absolute positions, so of quick ones (e.g. shifting a bookmark step by step)
+  // only the newest matters: those in between are dropped instead of played one by one.
+  const jumpRunner = useRef<ReturnType<typeof latestOnly> | null>(null);
+
   /** Moves to a position in this song's track and plays, whatever the device did before. */
   const jumpAndPlay = useCallback(
     (positionMs: number) => {
       if (!playback) {
         return;
       }
-      seekQueue.current = seekQueue.current
-        .then(async () => {
+      jumpRunner.current ??= latestOnly(reportFailure("Jumping"));
+      jumpRunner.current(() => {
+        // After any seeks still running, which act on the same device.
+        const jump = seekQueue.current.then(async () => {
           const current = await playback.currentState();
           if (
             current !== null &&
@@ -452,8 +459,10 @@ export default function SpotifyPlayer({
             await playback.play(trackUri, Math.max(positionMs, 0));
             await refresh();
           }
-        })
-        .catch(reportFailure("Jumping"));
+        });
+        seekQueue.current = jump.catch(() => {});
+        return jump;
+      });
     },
     [playback, trackUri, replacementTrackUri, refresh, reportFailure]
   );

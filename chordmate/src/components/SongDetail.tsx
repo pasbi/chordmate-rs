@@ -12,6 +12,7 @@ import { AnchorIcon, type SheetSections } from "./ChordSheet.tsx";
 import { FloatingMenu } from "./ContextMenu.tsx";
 import { SmallButton } from "./BookmarkMarkers.tsx";
 import { formatPrecisePosition, SHIFT_STEP_MS } from "./bookmarkUi.ts";
+import { latestOnly } from "../lib/latestOnly.ts";
 import type { PlayerHandle, TrackState } from "./SpotifyPlayer.tsx";
 
 import { useAccessToken } from "../hooks/useAccessToken";
@@ -319,19 +320,25 @@ function SectionMenu({
 }: {
   menu: SectionMenuState;
   anchor: SectionAnchor | null;
-  onSet: (positionMs: number) => void;
+  onSet: (positionMs: number) => Promise<unknown>;
   onRemove: (anchor: SectionAnchor) => void;
   onJump: (positionMs: number) => void;
   onClose: () => void;
 }) {
   // Fine-tuned here first, so that quick presses build on each other without waiting for saving.
   const [startMs, setStartMs] = useState(anchor?.positionMs ?? null);
+  // Of quick steps, only the newest start is saved (each jump likewise, see SpotifyPlayer).
+  const [save] = useState(() => latestOnly(reportAnchorFailure));
   const { positionMs } = menu;
   const shift = (from: number, deltaMs: number) => {
     const shifted = Math.max(from + deltaMs, 0);
     setStartMs(shifted);
-    onSet(shifted);
+    save(() => onSet(shifted).then(() => undefined));
     onJump(shifted);
+  };
+  const anchorAndClose = (newStartMs: number) => {
+    onSet(newStartMs).catch(reportAnchorFailure);
+    onClose();
   };
   return (
     <FloatingMenu
@@ -344,25 +351,26 @@ function SectionMenu({
       <p className="px-4 pt-1 pb-2 text-xs font-semibold text-gray-600 dark:text-gray-400">
         {menu.section.heading}
       </p>
-      {positionMs === null ? (
-        <p className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">
-          Play the song to anchor this section.
-        </p>
-      ) : (
-        <div className="px-2 py-1">
+      <div className="px-2 py-1 flex gap-1">
+        {positionMs === null ? (
+          <p className="flex-1 px-2 py-1 text-sm text-gray-600 dark:text-gray-400">
+            Play the song to anchor this section.
+          </p>
+        ) : (
           <button
             type="button"
-            onClick={() => {
-              onSet(positionMs);
-              onClose();
-            }}
-            className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white text-sm font-medium tabular-nums focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+            onClick={() => anchorAndClose(positionMs)}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white text-sm font-medium tabular-nums focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
           >
             <AnchorIcon />
             Anchor to {formatPrecisePosition(positionMs)}
           </button>
-        </div>
-      )}
+        )}
+        {/* Many songs' first section starts right away; no need to catch that moment. */}
+        <SmallButton title="Anchor to the song's start" onClick={() => anchorAndClose(0)}>
+          <span className="text-sm tabular-nums">0:00</span>
+        </SmallButton>
+      </div>
       {anchor && startMs !== null && (
         <div className="px-2 py-1 flex items-center gap-1 select-none">
           <SmallButton
@@ -870,9 +878,7 @@ export default function SongDetail() {
         <SectionMenu
           menu={sectionMenu}
           anchor={sectionAnchors.byKey.get(sectionKeyString(sectionMenu.section)) ?? null}
-          onSet={(positionMs) =>
-            sectionAnchors.set(sectionMenu.section, positionMs).catch(reportAnchorFailure)
-          }
+          onSet={(positionMs) => sectionAnchors.set(sectionMenu.section, positionMs)}
           onRemove={(anchor) => sectionAnchors.remove(anchor).catch(reportAnchorFailure)}
           onJump={jumpTo}
           onClose={() => setSectionMenu(null)}
