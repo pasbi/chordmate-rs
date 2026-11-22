@@ -294,6 +294,8 @@ const AUTO_SCROLL: DeviceChoiceSetting<"on" | "off"> = {
 /** A heading's menu: which section, where, and the playback position when it was opened. */
 interface SectionMenuState {
   section: SectionKey;
+  /** The sheet's first section, which may start right at the song's start. */
+  first: boolean;
   x: number;
   y: number;
   /** Null while nothing is loaded. */
@@ -367,9 +369,11 @@ function SectionMenu({
           </button>
         )}
         {/* Many songs' first section starts right away; no need to catch that moment. */}
-        <SmallButton title="Anchor to the song's start" onClick={() => anchorAndClose(0)}>
-          <span className="text-sm tabular-nums">0:00</span>
-        </SmallButton>
+        {menu.first && (
+          <SmallButton title="Anchor to the song's start" onClick={() => anchorAndClose(0)}>
+            <span className="text-sm tabular-nums">0:00</span>
+          </SmallButton>
+        )}
       </div>
       {anchor && startMs !== null && (
         <div className="px-2 py-1 flex items-center gap-1 select-none">
@@ -625,7 +629,8 @@ export default function SongDetail() {
   };
   const sheetSections: SheetSections = {
     anchors: sectionAnchors.byKey,
-    onOpenMenu: (section, x, y) => setSectionMenu({ section, x, y, positionMs: readPositionMs() }),
+    onOpenMenu: (section, first, x, y) =>
+      setSectionMenu({ section, first, x, y, positionMs: readPositionMs() }),
     onJump: jumpTo,
     showControls: (song?.spotifyTrack ?? "") !== "",
     // Anchoring takes the playback position, so only while the track is loaded (also paused).

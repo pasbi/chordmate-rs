@@ -84,8 +84,11 @@ function LyricsLine({ segments }: { segments: Segment[] }) {
 export interface SheetSections {
   /** The anchored sections, by `sectionKeyString`. */
   anchors: Map<string, SectionAnchor>;
-  /** Opens a section's menu (set or remove its anchor) at a screen position. */
-  onOpenMenu: (section: SectionKey, x: number, y: number) => void;
+  /**
+   * Opens a section's menu (set or remove its anchor) at a screen position; `first` tells
+   * whether it is the sheet's first section, which may start right at the song's start.
+   */
+  onOpenMenu: (section: SectionKey, first: boolean, x: number, y: number) => void;
   /** Moves playback to a position and plays. */
   onJump: (positionMs: number) => void;
   /** Whether headings show their buttons: jump to an anchor, fine-tune it. */
@@ -153,10 +156,12 @@ export function AnchorIcon() {
  */
 function HeadingControls({
   section,
+  first,
   anchor,
   sections,
 }: {
   section: SectionKey;
+  first: boolean;
   anchor: SectionAnchor | null;
   sections: SheetSections;
 }) {
@@ -165,7 +170,7 @@ function HeadingControls({
       title="Fine-tune, anchor anew or remove where this section starts"
       onClick={(event) => {
         const bounds = event.currentTarget.getBoundingClientRect();
-        sections.onOpenMenu(section, bounds.left, bounds.bottom);
+        sections.onOpenMenu(section, first, bounds.left, bounds.bottom);
       }}
     >
       <span className="inline-flex items-center gap-1">
@@ -220,17 +225,19 @@ function JumpButton({ onClick }: { onClick: () => void }) {
 function Heading({
   text,
   section,
+  first,
   sections,
 }: {
   text: string;
   section: SectionKey | null;
+  first: boolean;
   sections: SheetSections | null;
 }) {
   const key = section ? sectionKeyString(section) : null;
   const anchor = key === null ? null : (sections?.anchors.get(key) ?? null);
   const menuTrigger = useContextMenuTrigger((x, y) => {
     if (section) {
-      sections?.onOpenMenu(section, x, y);
+      sections?.onOpenMenu(section, first, x, y);
     }
   });
   if (!sections || !section) {
@@ -262,7 +269,7 @@ function Heading({
         {text}
       </button>
       {sections.showControls ? (
-        <HeadingControls section={section} anchor={anchor} sections={sections} />
+        <HeadingControls section={section} first={first} anchor={anchor} sections={sections} />
       ) : (
         anchor && (
           <span className="text-xs tabular-nums text-gray-500 dark:text-gray-400 select-none">
@@ -277,17 +284,20 @@ function Heading({
 function SheetLineView({
   line,
   section,
+  first,
   sections,
 }: {
   line: SheetLine;
   section: SectionKey | null;
+  /** Whether the line is the sheet's first heading. */
+  first: boolean;
   sections: SheetSections | null;
 }) {
   switch (line.kind) {
     case "empty":
       return <div>{" "}</div>;
     case "heading":
-      return <Heading text={line.text} section={section} sections={sections} />;
+      return <Heading text={line.text} section={section} first={first} sections={sections} />;
     case "tab":
       return <pre className="font-mono">{line.lines.join("\n")}</pre>;
     case "lyrics":
@@ -357,6 +367,7 @@ export default function ChordSheet({
   );
   const keys = useMemo(() => headingKeys(lines), [lines]);
   const sectionBlocks = useMemo(() => blocks(lines, keys), [lines, keys]);
+  const firstHeadingIndex = keys.keys().next().value ?? null;
   const current = sections?.current ?? null;
   return (
     // Room on the left for the headings' jump buttons.
@@ -373,6 +384,7 @@ export default function ChordSheet({
               key={start + offset}
               line={line}
               section={keys.get(start + offset) ?? null}
+              first={start + offset === firstHeadingIndex}
               sections={sections}
             />
           ))}
